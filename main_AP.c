@@ -1,4 +1,4 @@
-// EZ430 On Clock
+// BRAIN MODE
 
 #include "bsp.h"
 #include "mrfi.h"
