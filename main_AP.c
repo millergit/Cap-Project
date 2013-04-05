@@ -1,4 +1,4 @@
-// EZ430 On Clock
+// BRAIN MODE
 
 #include "bsp.h"
 #include "mrfi.h"
@@ -10,6 +10,7 @@
 #include "nwk.h"
 
 
+//EZ430 on clock
 #define SENT_LENGTH 3;
 
 //interrupt handlers

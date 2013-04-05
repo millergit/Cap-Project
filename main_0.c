@@ -4,7 +4,6 @@
  * main.c
  */
 
-//BRAIN CODE
 //MSP430 NUMBER 0
 
 static void config_clocks();
@@ -95,6 +94,9 @@ void initVars(){
 	mode = 0;
 	almWatch = 0;
 	tubeSel = 6;
+	digit=0;
+	int i;
+	for(i=0;i<6;i++){tube[i]=0;}
 }
 
 static void config_ports(){
@@ -120,63 +122,10 @@ static void config_ports(){
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
 
+
 /*------------------------------------------------------------------------------
- *interrupt service routines
+ *functional routines
 ------------------------------------------------------------------------------*/
-#pragma vector=TIMER1_A3_VECTOR
-__interrupt void Timer1_A3 (void)
-{
-
-	clockTick();
-	checkAlarm();
-	if(mode==2){//if alm set
-		if(almPm){
-			P1OUT |= 0x80;
-		}
-		else{
-			P1OUT &= ~01;
-		}
-	}
-	else{
-		if(pm){
-			P1OUT |= 0x80;
-		}
-		else{
-			P1OUT &= ~01;
-			}
-	}
-
-	_bic_SR_register_on_exit(LPM3_bits); //clear flag
-
-
-}
-
-#pragma vector=PORT2_VECTOR
-__interrupt void Port_2(void)
- {
-
-	P2IFG &= 0x00; //clear interrupt flag
-
-	for(i=0;i<50000;i++){}//debounce for 50ms
-
-	if((P2IN & 0x07) == 0x06){//p2.0
-		button=1;
-		whatButton=1;
-	}
-	else if((P2IN & 0x07) == 0x05){//p2.1
-		button=1;
-		whatButton=2;
-	}
-	else if((P2IN & 0x07) == 0x03){//p2.2
-		button=1;
-		whatButton=3;
-	}
-
-	//implement logic for temp collection?
-
-	_bic_SR_register_on_exit(LPM3_bits);//clear flag
- }
-
 
 void doAction(){
 
@@ -439,5 +388,59 @@ void clockTick(){
 	}
 }
 
+/*------------------------------------------------------------------------------
+ *interrupt service routines
+------------------------------------------------------------------------------*/
+#pragma vector=TIMER1_A3_VECTOR
+__interrupt void Timer1_A3 (void)
+{
+
+	clockTick();
+	checkAlarm();
+	if(mode==2){//if alm set
+		if(almPm){
+			P1OUT |= 0x80;
+		}
+		else{
+			P1OUT &= ~01;
+		}
+	}
+	else{
+		if(pm){
+			P1OUT |= 0x80;
+		}
+		else{
+			P1OUT &= ~01;
+			}
+	}
+
+	_bic_SR_register_on_exit(LPM3_bits); //clear flag
 
 
+}
+
+#pragma vector=PORT2_VECTOR
+__interrupt void Port_2(void)
+ {
+
+	P2IFG &= 0x00; //clear interrupt flag
+
+	for(i=0;i<50000;i++){}//debounce for 50ms
+
+	if((P2IN & 0x07) == 0x06){//p2.0
+		button=1;
+		whatButton=1;
+	}
+	else if((P2IN & 0x07) == 0x05){//p2.1
+		button=1;
+		whatButton=2;
+	}
+	else if((P2IN & 0x07) == 0x03){//p2.2
+		button=1;
+		whatButton=3;
+	}
+
+	//implement logic for temp collection?
+
+	_bic_SR_register_on_exit(LPM3_bits);//clear flag
+ }

@@ -15,8 +15,8 @@ __interrupt void Port_2(void);
 __interrupt void Timer1_A3 (void);
 
 //clock variables
-unsigned int month, day, year, sec, min, hour, pm, mode, button, whatButton;
-unsigned int almH, almM, almS, almWatch;
+unsigned int button, whatButton;
+unsigned int almPower, almWatch;
 unsigned int temp[3];
 
 //Display items
@@ -24,7 +24,8 @@ unsigned int tube1,tube2;//1 is hour
 unsigned int tubeSel, digit;
 
 //clock fuctions
-void doAction();
+void getTube();
+void checkAlarm();
 
 
 int main(void) {
@@ -38,16 +39,12 @@ int main(void) {
 	while(1){
 
 
-		doAction();
+		checkAlarm();
 
-
-
-		__bis_SR_register(LPM3_bits + GIE);//sleep in heavenly peace
+		__bis_SR_register(LPM3_bits + GIE);//sleep
 	}
 }
 
-
-//hour, min, mode, snooze, alarm on/off
 
 static void config_clocks(){
 
@@ -80,13 +77,7 @@ static void config_interrupts(){
 }
 
 void initVars(){
-	month = 1;
-	day = 1;
-	year = 2000;
-	sec,min,pm,almM,almS = 0;
-	hour,almH = 12;
-	temp = 0;
-	mode = 0;
+	almPower = 0;
 	almWatch = 0;
 	tubeSel = 6;
 }
@@ -102,7 +93,7 @@ static void config_ports(){
 	//p2.4-2.6 tube 1 OUT
 	//p2.7 alarm LED OUT
 
-	P1SEL |= 0b00000100;//
+	P1SEL |= 0b00000100;
 	P1DIR = 0b01111100;
 	P1REN |= 0b10000011;
 	P1OUT &= 0b10000011;
@@ -117,14 +108,34 @@ static void config_ports(){
 	TA1CCTL1 = OUTMOD_7;
 
 	P2DIR = 0xF0;//p2.7 output
-	P2REN |= 0x0F;//enable resistor
-	P2OUT &= 0x0F;//pullup resistor/clear out of 2.7
-	P2IES |= 0x0F;//high to low transition to generate
-	P2IFG &= 0xF0;//clear flag to start
-	P2IE |= 0x0F;//interrupt enable
+	P2IE &= 0xF0;//interrupt disable
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
+
+/*------------------------------------------------------------------------------
+ *functional routines
+------------------------------------------------------------------------------*/
+void checkAlarm(){
+
+	if(almWatch){
+		almWatch++;
+		if(almWatch == 10000){//10,000/1MHz =.01s*12000(other MSP)=120 cycles to see alarm
+			almWatch = 0;
+			P2OUT &= ~0x80;//clear alarm
+		}
+	}
+	else if((almH==hour)&&(almM==min)&&(pm=almPm)){
+		P2OUT |= 0x80;//send alarm beacon on p1.7
+		almWatch=1;
+	}
+
+}
+
+void getTube(){
+
+}
+
 
 /*------------------------------------------------------------------------------
  *interrupt service routines
@@ -133,31 +144,28 @@ static void config_ports(){
 __interrupt void Timer1_A3 (void)
 {
 
-	clockTick();
+
 	checkAlarm();
 	_bic_SR_register_on_exit(LPM3_bits); //clear flag
 
 
 }
 
+#pragma vector=PORT1_VECTOR
+__interrupt void Port_1(void)
+ {
+
+	//check snooze and alarm
+
+	P1IFG &= 0x00; //clear interrupt flag
+
+ }
+
 #pragma vector=PORT2_VECTOR
 __interrupt void Port_2(void)
  {
 
-	if((P2IN & 0xF0) == 0x70){//mode
-		button=1;
-		whatButton=1;
-	}
-	else if((P2IN & 0xF0) == 0xB0){//hour
-		button=1;
-		whatButton=2;
-	}
-	else if((P2IN & 0xF0) == 0xC0){//min
-		button=1;
-		whatButton=3;
-	}
-
-	temp[0]=
+	//check snooze and alarm
 
 	P2IFG &= 0x00; //clear interrupt flag
 
@@ -166,14 +174,14 @@ __interrupt void Port_2(void)
 #pragma vector=NMI_VECTOR
 __interrupt void nmi(void)
 {
+	 IFG1&=~NMIIFG;                      //clear nmi interrupt flag
+	 IE1=NMIIE;                          // enable nmi
+	 WDTCTL = WDTPW + WDTHOLD+WDTNMI;    // select nmi function on RST/NMI
 
 	//debounce slightly?
 	for(i=0;i<5000;i++);
 	//read appropriate pins
-
- IFG1&=~NMIIFG;                      //clear nmi interrupt flag
- IE1=NMIIE;                          // enable nmi
- WDTCTL = WDTPW + WDTHOLD+WDTNMI;    // select nmi function on RST/NMI
+	getTube();
 
 }
 

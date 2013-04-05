@@ -1,5 +1,3 @@
-//EZ430 On Remote
-
 #include "bsp.h"
 #include "mrfi.h"
 #include "nwk_types.h"
@@ -8,6 +6,8 @@
 #include "bsp_buttons.h"
 #include "vlo_rand.h"
 
+
+//EZ430 in remote
 
 static void linkTo(void);
 
