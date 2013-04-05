@@ -11,7 +11,7 @@
 
 
 //EZ430 on clock
-#define SENT_LENGTH 3;
+
 
 //interrupt handlers
 __interrupt void ADC10_ISR(void);
@@ -22,7 +22,6 @@ __interrupt void Timer_A (void);
 static void processMessage(linkID_t, uint8_t, uint8_t);
 
 //initialization functions
-static void config_interrupts();
 static void config_ports();
 static volatile unsigned int timerCount = 0;
 
@@ -30,7 +29,7 @@ static volatile unsigned int timerCount = 0;
 unsigned int temp, alarm, mode, button, whatButton;
 
 
-//clock fuctions
+//fuctions
 void doAction();
 void initVars();
 
@@ -42,7 +41,6 @@ static volatile uint8_t UUDframesem = 0;
 void main (void)
 {
 	WDTCTL = WDTPW + WDTHOLD;//stop watchdog timer
-	config_interrupts();
 	config_ports();
 	initVars();
 
@@ -57,7 +55,7 @@ void main (void)
 
 		if(sUUDFrameSem)//if message is waiting
 		{
-			uint8_t msg[SENT_LENGTH], len;
+			uint8_t msg[4], len;
 
 			if (SMPL_SUCCESS == SMPL_Receive(SMPL_LINKID_USER_UUD, msg, &len))
 			{
@@ -70,8 +68,6 @@ void main (void)
 		}
 
 		doAction();
-		setTubes();
-		display();
 
 		__bis_SR_register(LPM0_bits + GIE);//sleep in heavenly peace
 	}
@@ -83,13 +79,13 @@ void doAction(){
 
 	if (button){
 		switch(whatButton){
-		case 1://mode
+		case 0://mode
 			break;
-		case 2://hour
+		case 1://hour
 			break;
-		case 3://min
+		case 2://min
 			break;
-		case 4://snooze
+		case 3://snooze
 			break;
 		default:
 			break;
@@ -99,20 +95,10 @@ void doAction(){
 }
 
 void initVars(){
-	month = 1;
-	day = 1;
-	year = 2000;
-	sec,min,pm = 0;
-	hour = 12;
-	temp =0;
-	alarm=0;
-	mode=0;
+	temp, alarm, mode, button, whatButton=0;
 }
 
-static void config_interrupts(){
 
-
-}
 
 static void config_ports(){
 
