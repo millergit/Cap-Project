@@ -11,6 +11,7 @@ static void config_interrupts();
 static void config_ports();
 
 //interrupt handlers
+__interrupt void Port_1(void);
 __interrupt void Port_2(void);
 __interrupt void Timer1_A3 (void);
 
@@ -24,7 +25,9 @@ unsigned int tube1,tube2;//1 is hour
 unsigned int tubeSel, digit;
 
 //clock fuctions
-void getTube();
+void handleButton();
+void getTubes();
+void setTubes();
 void checkAlarm();
 
 
@@ -40,10 +43,14 @@ int main(void) {
 
 
 		checkAlarm();
-
+		handleButton();
+		getTubes();
+		setTubes();
 		__bis_SR_register(LPM3_bits + GIE);//sleep
 	}
 }
+
+
 
 
 static void config_clocks(){
@@ -86,20 +93,21 @@ static void config_ports(){
 	//p1.0 Z IN
 	//p1.1 alarm IN
 	//p1.2 PWM alarm action OUT
-	//p1.3-1.6  tube 2 OUT
+	//p1.3-1.6  XIN
 	//p1.7 snooze button IN
 
-	//p2.0-2.3 X IN
+	//p2.0-2.3 Tube2 OUT
 	//p2.4-2.6 tube 1 OUT
-	//p2.7 alarm LED OUT
+	//p2.7 alarm LED IN
 
 	P1SEL |= 0b00000100;
 	P1DIR = 0b01111100;
 	P1REN |= 0b10000011;
 	P1OUT &= 0b10000011;
-	P1IES |= 0b10000011;
-	P1IFG &= 0b01111100;
-	P1IE |= 0b10000011;
+	P1IE |= 0b10000010;
+	P1IES |= 0b10000010;//don't' want zin to trigger
+	P1IFG &= 0x00;
+
 
 	//1.2 PWM
 	TA1CTL = TASSEL_1 + MC_1;//aclk @12000Hz
@@ -107,8 +115,8 @@ static void config_ports(){
 	TA1CCR1 = 3;//4000Hz 50% duty
 	TA1CCTL1 = OUTMOD_7;
 
-	P2DIR = 0xF0;//p2.7 output
-	P2IE &= 0xF0;//interrupt disable
+	P2DIR = 0x7F;//p2.7 IN
+	P2IE &= 0x80;//interrupt for alarm switch
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
@@ -116,6 +124,25 @@ static void config_ports(){
 /*------------------------------------------------------------------------------
  *functional routines
 ------------------------------------------------------------------------------*/
+
+void handleButton(){
+
+	if (button){
+		switch(whatButton){
+		case 1://alarm
+			alarmPower=1;
+			break;
+		case 2://snooze
+			alarmPower=0;
+			break;
+		default:
+			break;
+		}
+		button=0;//button handled
+	}
+
+}
+
 void checkAlarm(){
 
 	if(almWatch){
@@ -133,6 +160,15 @@ void checkAlarm(){
 }
 
 void getTube(){
+
+	//if tube0
+	//if tube1
+
+}
+
+void setTube(){
+
+	//change pin outs
 
 }
 
@@ -155,9 +191,25 @@ __interrupt void Timer1_A3 (void)
 __interrupt void Port_1(void)
  {
 
-	//check snooze and alarm
+	//check if snooze or alarm
+
 
 	P1IFG &= 0x00; //clear interrupt flag
+
+	for(i=0;i<50000;i++){}//debounce for 50ms?
+
+	if((P1IN & 0x82) == 0x80){//p1.1 alm
+		button=1;
+		whatButton=1;
+	}
+	else if((P1IN & 0x82) == 0x02){//p1.7 snooze
+		button=1;
+		whatButton=2;
+	}
+
+	//implement logic for temp collection?
+
+	_bic_SR_register_on_exit(LPM3_bits);//clear flag
 
  }
 
@@ -165,7 +217,7 @@ __interrupt void Port_1(void)
 __interrupt void Port_2(void)
  {
 
-	//check snooze and alarm
+	//alarm pin?
 
 	P2IFG &= 0x00; //clear interrupt flag
 

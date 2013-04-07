@@ -24,7 +24,7 @@ unsigned int tube[6];//1 is hour
 unsigned int tubeSel, digit;
 
 //clock fuctions
-void doAction();
+void handleButton();
 void setTubes();
 void display();
 void clockTick();
@@ -40,7 +40,7 @@ int main(void) {
 	while(1){
 
 
-		doAction();
+		handleButton();
 		setTubes();
 
 		for(tubeSel=0;tubeSel<6;tubeSel++){
@@ -109,12 +109,12 @@ static void config_ports(){
 	//default is input
 
 	P1DIR = 0xFF;//all output
-	P1OUT = 0b00001100;//all off except NMI to GND through 2to4
+	P1OUT = 0b11111110;//since active low, start high
 
 	P2DIR = 0x80;//p2.7 output
 
 	P2REN |= 0x7F;//enable resistor
-	P2OUT &= 0x7F;//pullup resistor/clear out of 2.7
+	P2OUT |= 0xFF;//alarm flag start high//pullup resistor
 	P2IES |= 0x7F;//high to low transition to generate
 	P2IFG &= 0x80;//clear flag to start
 	P2IE |= 0x7F;//interrupt enable
@@ -127,7 +127,7 @@ static void config_ports(){
  *functional routines
 ------------------------------------------------------------------------------*/
 
-void doAction(){
+void handleButton(){
 
 	if (button){
 		switch(whatButton){
@@ -295,12 +295,12 @@ void display(){
 	}
 
 	//send NMI with info
-	switch(tubeSel){
+	switch(tubeSel){//send 0 to indicate button press
 	case 0:
 		P1OUT &= 0xF1;
 		break;
 	case 1:
-		P1OUT &= 0xF3;
+		P1OUT &= 0xF2;
 		break;
 	case 2:
 		P1OUT &= 0xF5;
@@ -329,11 +329,11 @@ void checkAlarm(){
 		almWatch++;
 		if(almWatch == 10000){//10,000/1MHz =.01s*12000(other MSP)=120 cycles to see alarm
 			almWatch = 0;
-			P2OUT &= ~0x80;//clear alarm
+			P2OUT |= 0x80;//clear alarm
 		}
 	}
 	else if((almH==hour)&&(almM==min)&&(pm=almPm)){
-		P2OUT |= 0x80;//send alarm beacon on p1.7
+		P2OUT &= ~0x80;//send alarm beacon on p1.7
 		almWatch=1;
 	}
 
@@ -399,7 +399,7 @@ __interrupt void Timer1_A3 (void)
 	checkAlarm();
 	if(mode==2){//if alm set
 		if(almPm){
-			P1OUT |= 0x80;
+			P1OUT |= 0x01;
 		}
 		else{
 			P1OUT &= ~01;
@@ -407,7 +407,7 @@ __interrupt void Timer1_A3 (void)
 	}
 	else{
 		if(pm){
-			P1OUT |= 0x80;
+			P1OUT |= 0x01;
 		}
 		else{
 			P1OUT &= ~01;
