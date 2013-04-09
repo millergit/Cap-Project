@@ -256,7 +256,7 @@ void display(){
 	//z is 1
 	//2,3 are 2 to 4
 	//x is 4-7
-
+	int i;
 	P1OUT |= 0b11110000;//set out to all ones momentarily
 	digit = tube[tubeSel];
 
@@ -316,8 +316,9 @@ void display(){
 		break;
 	}
 
-	//hold for 1000 cycles
-	for(i=0;i<1000;i++){}
+	//hold for 10000 cycles
+
+	for(i=0;i<10000;i++){}
 	P1OUT |= 0x0C;//clear NMI
 
 
@@ -327,7 +328,7 @@ void checkAlarm(){
 
 	if(almWatch){
 		almWatch++;
-		if(almWatch == 10000){//10,000/1MHz =.01s*12000(other MSP)=120 cycles to see alarm
+		if(almWatch == 1000){//hold for 1000 cycles
 			almWatch = 0;
 			P2OUT |= 0x80;//clear alarm
 		}
@@ -424,7 +425,7 @@ __interrupt void Port_2(void)
  {
 
 	P2IFG &= 0x00; //clear interrupt flag
-
+	int i;
 	for(i=0;i<50000;i++){}//debounce for 50ms
 
 	if((P2IN & 0x07) == 0x06){//p2.0
