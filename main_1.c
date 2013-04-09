@@ -17,7 +17,7 @@ __interrupt void Timer1_A3 (void);
 
 //clock variables
 unsigned int button, whatButton;
-unsigned int almPower, almWatch;
+unsigned int almWatch;
 unsigned int temp[3];
 
 //Display items
@@ -26,9 +26,10 @@ unsigned int tubeSel, digit;
 
 //clock fuctions
 void handleButton();
-void getTubes();
-void setTubes();
-void checkAlarm();
+void getTube();
+void setTube();
+void alarmOn();
+void alarmOff();
 
 
 int main(void) {
@@ -42,10 +43,8 @@ int main(void) {
 	while(1){
 
 
-		checkAlarm();
 		handleButton();
-		getTubes();
-		setTubes();
+
 		__bis_SR_register(LPM3_bits + GIE);//sleep
 	}
 }
@@ -84,10 +83,12 @@ static void config_interrupts(){
 }
 
 void initVars(){
-	almPower = 0;
+	button, whatButton = 0;
 	almWatch = 0;
-	tubeSel = 6;
-}
+	int i;
+	for(i=0;i<3;i++){temp[i];}
+	tube1,tube2 = 0;
+	tubeSel, digit = 0;
 
 static void config_ports(){
 	//p1.0 Z IN
@@ -104,13 +105,13 @@ static void config_ports(){
 	P1DIR = 0b01111100;
 	P1REN |= 0b10000011;
 	P1OUT &= 0b10000011;
-	P1IE |= 0b10000010;
+	P1IE |= 0b10000010;//don't' want zin to trigger
 	P1IES |= 0b10000010;//don't' want zin to trigger
 	P1IFG &= 0x00;
 
 
 	//1.2 PWM
-	TA1CTL = TASSEL_1 + MC_1;//aclk @12000Hz
+	TA1CTL = TASSEL_1 + MC_0;//aclk @12000Hz
 	TA1CCR0 = 6;// PWM period, 2000Hz
 	TA1CCR1 = 3;//4000Hz 50% duty
 	TA1CCTL1 = OUTMOD_7;
@@ -130,10 +131,10 @@ void handleButton(){
 	if (button){
 		switch(whatButton){
 		case 1://alarm
-			alarmPower=1;
+			alarmOn();
 			break;
 		case 2://snooze
-			alarmPower=0;
+			alarmOff();
 			break;
 		default:
 			break;
@@ -143,33 +144,52 @@ void handleButton(){
 
 }
 
-void checkAlarm(){
+void alarmOn(){
+	TA1CTL |= MC_1;
+}
 
+void alarmOff(){
+	TA1CTL &= MC_0;
+}
+
+void checkAlarm(){
 	if(almWatch){
 		almWatch++;
-		if(almWatch == 10000){//10,000/1MHz =.01s*12000(other MSP)=120 cycles to see alarm
-			almWatch = 0;
-			P2OUT &= ~0x80;//clear alarm
+		if(almWatch == 60){//
+			alarmOff();
 		}
 	}
-	else if((almH==hour)&&(almM==min)&&(pm=almPm)){
-		P2OUT |= 0x80;//send alarm beacon on p1.7
-		almWatch=1;
-	}
-
 }
 
 void getTube(){
 
-	//if tube0
-	//if tube1
+	if((P1IN & 0x01) &= 0x00){//if tube1
+		tube1= ((P1IN & 0x38)<<1);
+		tubeSel = 1;
+	}
+	else if((P1IN & 0x01) &= 0x01){//if tube2
+		tube2= ((P1IN & 0x78)<<1);
+		tubeSel = 2;
+	}
 
 }
 
 void setTube(){
 
-	//change pin outs
+	unsigned int temp1, temp2;
+	temp1,temp2 = 0xFF;
+	temp1 &= P2OUT;//store port
 
+	if(tubeSel==1){
+			temp2 &= tube1;
+	}
+	else if(tubeSel ==2){
+			temp2 &= tube2;
+	}
+
+	temp1= (temp1 & temp2);//determine new output
+	P2OUT = temp1;
+	tubeSel=0;
 }
 
 
@@ -180,10 +200,8 @@ void setTube(){
 __interrupt void Timer1_A3 (void)
 {
 
-
-	checkAlarm();
+	checkAlarm();//each second check if it's on
 	_bic_SR_register_on_exit(LPM3_bits); //clear flag
-
 
 }
 
@@ -192,9 +210,8 @@ __interrupt void Port_1(void)
  {
 
 	//check if snooze or alarm
-
-
 	P1IFG &= 0x00; //clear interrupt flag
+	int i;
 
 	for(i=0;i<50000;i++){}//debounce for 50ms?
 
@@ -206,9 +223,6 @@ __interrupt void Port_1(void)
 		button=1;
 		whatButton=2;
 	}
-
-	//implement logic for temp collection?
-
 	_bic_SR_register_on_exit(LPM3_bits);//clear flag
 
  }
@@ -217,23 +231,28 @@ __interrupt void Port_1(void)
 __interrupt void Port_2(void)
  {
 
-	//alarm pin?
-
 	P2IFG &= 0x00; //clear interrupt flag
 
+
+
+	_bic_SR_register_on_exit(LPM3_bits);
  }
 
 #pragma vector=NMI_VECTOR
 __interrupt void nmi(void)
 {
-	 IFG1&=~NMIIFG;                      //clear nmi interrupt flag
-	 IE1=NMIIE;                          // enable nmi
-	 WDTCTL = WDTPW + WDTHOLD+WDTNMI;    // select nmi function on RST/NMI
 
-	//debounce slightly?
-	for(i=0;i<5000;i++);
-	//read appropriate pins
+	IFG1&=~NMIIFG;                      //clear nmi interrupt flag
+	int i;
+	IE1=NMIIE;                          // enable nmi
+	WDTCTL = WDTPW + WDTHOLD+WDTNMI;    // select nmi function on RST/NMI
+
+	//debounce slightly
+
+	for(i=0;i<100;i++);
+
 	getTube();
+	setTube();
 
 }
 
