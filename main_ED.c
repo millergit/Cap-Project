@@ -11,7 +11,7 @@
 //initialization functions
 static void config_ports();
 
-
+//interrup handlers
 __interrupt void ADC10_ISR(void);
 __interrupt void Timer_A (void);
 
@@ -22,7 +22,7 @@ volatile int * tempOffset = (int *)0x10F4;
 static volatile uint8_t sSelfMeasureSem = 0;
 
 //fuctions
-void doAction();
+void handleButton();
 
 
 void main (void)
@@ -114,34 +114,45 @@ void main (void)
 
 static void config_ports(){
 
-	//4 buttons
+	//4 pins buttons IN
+	//2.0-2.4
+	//4.3-4.6
+
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
 
-void doAction(){
+void handleButton(){
 
 	if(button){
+		switch(whatButton){
+		case 0://mode
 
-		switch(whatButton){}
+			break;
+		case 1://hour
 
+			break;
+		case 2://min
+
+			break;
+		case 3://snooze
+
+			break;
+		}
 	}
 
 }
 
-
 /*------------------------------------------------------------------------------
- * ADC10 interrupt service routine
- *----------------------------------------------------------------------------*/
+ *interrupt service routines
+------------------------------------------------------------------------------*/
+
 #pragma vector=ADC10_VECTOR
 __interrupt void ADC10_ISR(void)
 {
   __bic_SR_register_on_exit(CPUOFF);        // Clear CPUOFF bit from 0(SR)
 }
 
-/*------------------------------------------------------------------------------
- * Timer A0 interrupt service routine
- *----------------------------------------------------------------------------*/
 #pragma vector=TIMERA0_VECTOR
 __interrupt void Timer_A (void)
 {
@@ -155,5 +166,5 @@ __interrupt void Port_1(void){
 	P1IFG &= 0x00;//clear flags
 
 	//handle buttons
-
+	__bic_SR_register_on_exit(LPM3_bits);
 }

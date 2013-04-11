@@ -14,8 +14,8 @@
 
 
 //interrupt handlers
-__interrupt void ADC10_ISR(void);
 __interrupt void Timer_A (void);
+__interrupt void Port_1(void);
 
 
 /* received message handler */
@@ -23,15 +23,18 @@ static void processMessage(linkID_t, uint8_t, uint8_t);
 
 //initialization functions
 static void config_ports();
+static void config_interrupts();
 static volatile unsigned int timerCount = 0;
 
 //clock variables
-unsigned int temp, alarm, mode, button, whatButton;
+unsigned int alarm, mode, button, whatButton, buttonSim;
+unsigned int temp[3];
 
 
 //fuctions
-void doAction();
+void handleButton();
 void initVars();
+void sendTemp();
 
 /* wireless items */
 static uint8_t callBack(linkID_t);
@@ -67,38 +70,19 @@ void main (void)
 			}
 		}
 
-		doAction();
+		handleButton();
+
+		sendTemp();
 
 		__bis_SR_register(LPM0_bits + GIE);//sleep in heavenly peace
 	}
 
 }
-//hour, min, mode, snooze
-
-void doAction(){
-
-	if (button){
-		switch(whatButton){
-		case 0://mode
-			break;
-		case 1://hour
-			break;
-		case 2://min
-			break;
-		case 3://snooze
-			break;
-		default:
-			break;
-		}
-		button=0;
-	}
-}
 
 void initVars(){
-	temp, alarm, mode, button, whatButton=0;
+	alarm, mode, button, buttonSim, whatButton=0;
+	temp[0],temp[1],temp[2]=0;
 }
-
-
 
 static void config_ports(){
 
@@ -106,8 +90,53 @@ static void config_ports(){
 	//4 pins info xfer OUT
 	//1 pin snooze IN
 
+	//2.0-2.4
+	//4.3-4.6
+
+
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
+
+static void config_interrupts(){
+
+	TA0CTL = TASSEL_1 + TACLR + MC_1; //ACLK
+	CCTL0 = CCIE; // CCR0 interrupt enabled
+	CCR0 = 0x04AF; //12000/(1199+1) = interrupt @ 10Hz
+
+}
+
+/*------------------------------------------------------------------------------
+ *functional routines
+------------------------------------------------------------------------------*/
+
+void handleButton(){
+
+	if (button){
+		switch(whatButton){
+		case 0://mode
+			//simulate 110
+
+			break;
+		case 1://hour
+			//simulate 101
+
+			break;
+		case 2://min
+			//simulate 011
+
+			break;
+		case 3://snooze
+			//simulate 0 press out specific pin
+
+			break;
+		default:
+			break;
+		}
+		buttonSim=1;
+		button=0;
+	}
+}
+
 
 static uint8_t callBack(linkID_t lid)
 {
@@ -137,6 +166,27 @@ static void processMessage(linkID_t lid, uint8_t msg[SENT_LENGTH], uint8_t len)
 	return;
 }
 
+void sendTemp(){}
+
+/*------------------------------------------------------------------------------
+ *interrupt service routines
+------------------------------------------------------------------------------*/
+
+#pragma vector=TIMERA0_VECTOR
+__interrupt void Timer_A(void){
+
+	//wake each 1/10th second and send temp data
+	sendTemp();
+
+	if(buttonSim){
+		buttonSim++;
+		if(buttonSim>2){
+			P1OUT |= 0xFF //button clear - NOT FINAL
+		}
+	}
+
+}
+
 
 #pragma vector=PORT1_VECTOR
 __interrupt void Port_1(void){
@@ -155,8 +205,6 @@ __interrupt void Port_1(void){
 		button=1;
 		whatButton=3;
 	}
-
-	temp[0]=;
 
 	P2IFG &= 0x00; //clear interrupt flag
 	_bic_SR_register_on_exit(LPM3_bits);//clear flag

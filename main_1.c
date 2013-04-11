@@ -72,14 +72,10 @@ static void config_clocks(){
 }
 
 static void config_interrupts(){
-	//no crystal, use more accurate DO clock
+
 	TA0CTL = TASSEL_2 + TACLR + MC_1 + ID_3; //SMCLK, clear TAR, count up, SM/8 = 15625Hz;
 	CCTL0 = CCIE; // CCR0 interrupt enabled
 	CCR0 = 0x3D08; //15625/(15624+1) = interrupt @ 1Hz
-
-	//crystal
-	//CCR0 = 0x7FFF; //32768/(32767) = interrupt @ 1Hz
-
 
 }
 
@@ -147,11 +143,11 @@ void handleButton(){
 }
 
 void alarmOn(){
-	TA1CTL |= MC_1;
+	TA1CTL |= MC_1;//count up
 }
 
 void alarmOff(){
-	TA1CTL &= MC_0;
+	TA1CTL &= MC_0;//stop count
 }
 
 void checkAlarm(){
@@ -166,11 +162,13 @@ void checkAlarm(){
 void getTube(){
 
 	if((P1IN & 0x01) == 0x00){//if tube1
-		tube1= ((P1IN & 0x38)<<1);
+		tube1 = ((P1IN & 0x38)<<1);
+		tube1 |= 0x8F;
 		tubeSel = 1;
 	}
 	else if((P1IN & 0x01) == 0x01){//if tube2
-		tube2= ((P1IN & 0x78)<<1);
+		tube2 = ((P1IN & 0x78)>>3);
+		tube2 |= 0xF0;
 		tubeSel = 2;
 	}
 
@@ -182,14 +180,17 @@ void setTube(){
 	temp1,temp2 = 0xFF;
 	temp1 &= P2OUT;//store port
 
+
 	if(tubeSel==1){
 			temp2 &= tube1;
+			temp1 |= 0x70;
 	}
 	else if(tubeSel ==2){
 			temp2 &= tube2;
+			temp1 |= 0x0F;
 	}
 
-	temp1= (temp1 & temp2);//determine new output
+	temp1 = (temp1 & temp2);//determine new output
 	P2OUT = temp1;
 	tubeSel=0;
 }
