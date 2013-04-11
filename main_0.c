@@ -12,7 +12,7 @@ static void config_ports();
 
 //interrupt handlers
 __interrupt void Port_2(void);
-__interrupt void Timer1_A3 (void);
+__interrupt void Timer1_A0 (void);
 
 //clock variables
 unsigned int month, day, year, sec, min, hour, pm, mode, button, whatButton;
@@ -28,6 +28,7 @@ void handleButton();
 void setTubes();
 void display();
 void clockTick();
+void getTemp();
 void checkAlarm();
 void initVars();
 
@@ -61,9 +62,9 @@ static void config_clocks(){
 	BCSCTL1 = CALBC1_1MHZ;//basic lock system control reg1 freq. range set
 
 
-	BCSCTL2 = 0b00000110;//SM clock is DO clock/8=125000Hz; main is dco
+	BCSCTL2 = 0x06;//SM clock is DO clock/8=125000Hz; main is dco
 
-	BCSCTL3 = 0b00100000;//ACLK is VLOCLK @ 12kHz
+	BCSCTL3 = 0x20;//ACLK is VLOCLK @ 12kHz
 
 	//if crystal
 	//BCSCTL3 = 0b00000000;//Aclk is crystal, bits 3&2 determine capacitor select.
@@ -90,7 +91,7 @@ void initVars(){
 	year = 2000;
 	sec,min,pm,almM,almPm = 0;
 	hour,almH = 12;
-	temp = 0;
+	temp[0],temp[1],temp[2] = 0;
 	mode = 0;
 	almWatch = 0;
 	tubeSel = 6;
@@ -109,7 +110,7 @@ static void config_ports(){
 	//default is input
 
 	P1DIR = 0xFF;//all output
-	P1OUT = 0b11111110;//since active low, start high
+	P1OUT = 0xFE;//since active low, start high
 
 	P2DIR = 0x80;//p2.7 output
 
@@ -134,6 +135,22 @@ void handleButton(){
 		case 1://mode
 			mode++;
 			mode=mode%4;
+			if(mode==2){//if alm mode
+					if(almPm){
+						P1OUT |= 0x01;
+					}
+					else{
+						P1OUT &= ~01;
+					}
+				}
+				else{
+					if(pm){
+						P1OUT |= 0x01;
+					}
+					else{
+						P1OUT &= ~01;
+						}
+				}
 			break;
 		case 2://hour
 			switch(mode){
@@ -179,20 +196,21 @@ void handleButton(){
 					if(month==2){
 						if(year%4==0){
 							if(year%100==0){
-								if(year%400==0){break;}
-								else{day=0;}
+								if((year%400)!=0){day=0;month++;}
 							}
-							else{break;}
 						}
 						else if(day==28){
 							day=0;
+							month++;
 						}
 					}
 					else if((month==4||month==6||month==9||month==11)&&day==30){
 						day=0;
+						month++;
 					}
 					else if((month==1||month==3||month==5||month==7||month==8||month==10||month==12)&&day==31){
 						day=0;
+						month++;
 					}
 				}
 				break;
@@ -257,7 +275,7 @@ void display(){
 	//2,3 are 2 to 4
 	//x is 4-7
 	int i;
-	P1OUT |= 0b11110000;//set out to all ones momentarily
+	P1OUT |= 0xF0;//set out to all ones momentarily
 	digit = tube[tubeSel];
 
 	//set output X
@@ -324,6 +342,14 @@ void display(){
 
 }
 
+void getTemp(){
+
+	//p2.3-2.6
+
+
+
+}
+
 void checkAlarm(){
 
 	if(almWatch){
@@ -363,10 +389,8 @@ void clockTick(){
 		if(month==2){
 			if(year%4==0){
 				if(year%100==0){
-					if(year%400==0){break;}
-					else{day=0;month++;}
+					if((year%400)!=0){day=0;month++;}
 				}
-				else{break;}
 			}
 			else if(day==28){
 				day=0;
@@ -392,29 +416,13 @@ void clockTick(){
 /*------------------------------------------------------------------------------
  *interrupt service routines
 ------------------------------------------------------------------------------*/
-#pragma vector=TIMER1_A3_VECTOR
-__interrupt void Timer1_A3 (void)
+#pragma vector=TIMER1_A0_VECTOR
+__interrupt void Timer1_A0 (void)
 {
 
 	clockTick();
 	checkAlarm();
-	if(mode==2){//if alm set
-		if(almPm){
-			P1OUT |= 0x01;
-		}
-		else{
-			P1OUT &= ~01;
-		}
-	}
-	else{
-		if(pm){
-			P1OUT |= 0x01;
-		}
-		else{
-			P1OUT &= ~01;
-			}
-	}
-
+	getTemp();
 	_bic_SR_register_on_exit(LPM3_bits); //clear flag
 
 
@@ -441,7 +449,6 @@ __interrupt void Port_2(void)
 		whatButton=3;
 	}
 
-	//implement logic for temp collection?
 
 	_bic_SR_register_on_exit(LPM3_bits);//clear flag
  }

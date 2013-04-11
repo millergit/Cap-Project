@@ -13,7 +13,7 @@ static void config_ports();
 //interrupt handlers
 __interrupt void Port_1(void);
 __interrupt void Port_2(void);
-__interrupt void Timer1_A3 (void);
+__interrupt void Timer1_A1 (void);
 
 //clock variables
 unsigned int button, whatButton;
@@ -30,6 +30,7 @@ void getTube();
 void setTube();
 void alarmOn();
 void alarmOff();
+void initVars();
 
 
 int main(void) {
@@ -59,9 +60,9 @@ static void config_clocks(){
 	BCSCTL1 = CALBC1_1MHZ;//basic lock system control reg1 freq. range set
 
 
-	BCSCTL2 = 0b00000110;//SM clock is DO clock/8=125000Hz; main is dco
+	BCSCTL2 = 0x06;//0b00000110SM clock is DO clock/8=125000Hz; main is dco
 
-	BCSCTL3 = 0b00100000;//ACLK is VLOCLK @ 12kHz
+	BCSCTL3 = 0x20;//ACLK is VLOCLK @ 12kHz
 
 	//if crystal
 	//BCSCTL3 = 0b00000000;//Aclk is crystal, bits 3&2 determine capacitor select.
@@ -89,6 +90,7 @@ void initVars(){
 	for(i=0;i<3;i++){temp[i];}
 	tube1,tube2 = 0;
 	tubeSel, digit = 0;
+}
 
 static void config_ports(){
 	//p1.0 Z IN
@@ -101,12 +103,12 @@ static void config_ports(){
 	//p2.4-2.6 tube 1 OUT
 	//p2.7 alarm LED IN
 
-	P1SEL |= 0b00000100;
-	P1DIR = 0b01111100;
-	P1REN |= 0b10000011;
-	P1OUT &= 0b10000011;
-	P1IE |= 0b10000010;//don't' want zin to trigger
-	P1IES |= 0b10000010;//don't' want zin to trigger
+	P1SEL |= 0x04;//0b00000100
+	P1DIR = 0x7C;//0b01111100
+	P1REN |= 0x83;//0b10000011
+	P1OUT &= 0x83;//0b10000011
+	P1IE |= 0x82;//0b10000010don't' want zin to trigger
+	P1IES |= 0x82;//0b10000010don't' want zin to trigger
 	P1IFG &= 0x00;
 
 
@@ -163,11 +165,13 @@ void checkAlarm(){
 
 void getTube(){
 
-	if((P1IN & 0x01) &= 0x00){//if tube1
+	unsigned int temp = P1IN & 0x01;
+
+	if((temp) &= 0x00){//if tube1
 		tube1= ((P1IN & 0x38)<<1);
 		tubeSel = 1;
 	}
-	else if((P1IN & 0x01) &= 0x01){//if tube2
+	else if((temp) &= 0x01){//if tube2
 		tube2= ((P1IN & 0x78)<<1);
 		tubeSel = 2;
 	}
@@ -196,8 +200,8 @@ void setTube(){
 /*------------------------------------------------------------------------------
  *interrupt service routines
 ------------------------------------------------------------------------------*/
-#pragma vector=TIMER1_A3_VECTOR
-__interrupt void Timer1_A3 (void)
+#pragma vector = TIMER1_A1_VECTOR
+__interrupt void Timer1_A1 (void)
 {
 
 	checkAlarm();//each second check if it's on
