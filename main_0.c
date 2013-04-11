@@ -194,12 +194,15 @@ void handleButton(){
 				day++;
 				if(day>=28){
 					if(month==2){
-						if(year%4==0){
+						if((year%4==0)&&(day<29)){
 							if(year%100==0){
-								if((year%400)!=0){day=0;month++;}
+								if((year%400)==0){}
+								else{
+									day=0;month++;
+								}
 							}
 						}
-						else if(day==28){
+						else{
 							day=0;
 							month++;
 						}
@@ -387,12 +390,15 @@ void clockTick(){
 	}
 	if(day>=28){
 		if(month==2){
-			if(year%4==0){
+			if((year%4==0)&&(day<29)){
 				if(year%100==0){
-					if((year%400)!=0){day=0;month++;}
+					if((year%400)==0){}
+					else{
+						day=0;month++;
+					}
 				}
 			}
-			else if(day==28){
+			else{
 				day=0;
 				month++;
 			}

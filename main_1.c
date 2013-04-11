@@ -165,13 +165,11 @@ void checkAlarm(){
 
 void getTube(){
 
-	unsigned int temp = P1IN & 0x01;
-
-	if((temp) &= 0x00){//if tube1
+	if((P1IN & 0x01) == 0x00){//if tube1
 		tube1= ((P1IN & 0x38)<<1);
 		tubeSel = 1;
 	}
-	else if((temp) &= 0x01){//if tube2
+	else if((P1IN & 0x01) == 0x01){//if tube2
 		tube2= ((P1IN & 0x78)<<1);
 		tubeSel = 2;
 	}
