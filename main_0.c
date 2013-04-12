@@ -17,7 +17,7 @@ __interrupt void Timer1_A0 (void);
 //clock variables
 unsigned int month, day, year, sec, min, hour, pm, mode, button, whatButton;
 unsigned int almH, almM, almPm, almWatch;
-unsigned int temp[3];
+unsigned int temp;
 
 //Display items
 unsigned int tube[6];//1 is hour
@@ -33,7 +33,7 @@ void checkAlarm();
 void initVars();
 
 int main(void) {
-    WDTCTL = WDTPW | WDTHOLD;	// Stop watchdog timer
+    WDTCTL = WDTPW + WDTHOLD;	// Stop watchdog timer
 	config_interrupts();
 	config_ports();
 	initVars();
@@ -60,7 +60,6 @@ static void config_clocks(){
 	//for no crystal
 	DCOCTL = CALDCO_1MHZ;//DCO frequency step set
 	BCSCTL1 = CALBC1_1MHZ;//basic lock system control reg1 freq. range set
-
 
 	BCSCTL2 = 0x06;//SM clock is DO clock/8=125000Hz; main is dco
 
@@ -104,21 +103,21 @@ static void config_ports(){
 	//p1.0 is pm led OUT
 	//p1.1  is Z OUT
 	//p1.4-1.7 are X OUT
-	//p2.0-2.3 are modes IN
+	//p2.0-2.2 are modes IN
+	//p2.3 OUT to ez430
 	//p2.4-2.6 from ez430 IN
 	//p2.7 alarm OUT
 	//default is input
 
 	P1DIR = 0xFF;//all output
-	P1OUT = 0xFE;//since active low, start high
+	P1OUT = 0x0C;//nmi select gnd
 
 	P2DIR = 0x80;//p2.7 output
-
 	P2REN |= 0x7F;//enable resistor
 	P2OUT |= 0xFF;//alarm flag start high//pullup resistor
 	P2IES |= 0x7F;//high to low transition to generate
-	P2IFG &= 0x80;//clear flag to start
 	P2IE |= 0x7F;//interrupt enable
+	P2IFG &= 0x80;//clear flag to start
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
@@ -316,24 +315,24 @@ void display(){
 	}
 
 	//send NMI with info
-	switch(tubeSel){//send 0 to indicate button press
+	switch(tubeSel){
 	case 0:
-		P1OUT &= 0xF1;
+		P1OUT &= 0xF1;//chip 1 tube 1
 		break;
 	case 1:
-		P1OUT &= 0xF2;
+		P1OUT &= 0xF2;//chip 1 tube 2
 		break;
 	case 2:
-		P1OUT &= 0xF5;
+		P1OUT &= 0xF5;//chip 2 tube 3
 		break;
 	case 3:
-		P1OUT &= 0xF7;
+		P1OUT &= 0xF7;//chip 2 tube 4
 		break;
 	case 4:
-		P1OUT &= 0xF9;
+		P1OUT &= 0xF9;//chip 3 tube 5
 		break;
 	case 5:
-		P1OUT &= 0xFB;
+		P1OUT &= 0xFB;//chip 3 tube 6
 		break;
 	}
 
@@ -347,22 +346,44 @@ void display(){
 
 void getTemp(){
 
-	//p2.3-2.6
+	P2OUT |= 0x08;//request temp in the form of 8 bit value
 
+	do{
 
+		if((P2IN & 0x20) == 0x20){//data ready when 1
 
+			if(i<5){
+				temp |= ((P2IN & 0x10)>>(4-i));//fill first 5 bits
+			}
+			else{
+				temp |= ((P2IN & 0x10)<<(i-4));//fill last 3
+			}
+
+			i++;
+		}
+
+		do{//fall through if 0
+			if((P2IN & 0x20)==0x00){//wait for next bit
+				break;
+			}
+		}while(1);
+
+		if((P2IN & 0x40) == 0x40){//transfer complete
+			break;
+		}
+	}
+	while(1);
+
+	P2OUT &= ~0x08;//turn off request
 }
 
 void checkAlarm(){
 
-	if(almWatch){
-		almWatch++;
-		if(almWatch == 1000){//hold for 1000 cycles
-			almWatch = 0;
-			P2OUT |= 0x80;//clear alarm
-		}
+	if(almWatch){//beacon off after 1s
+		almWatch = 0;
+		P2OUT |= 0x80;//clear alarm
 	}
-	else if((almH==hour)&&(almM==min)&&(pm=almPm)){
+	else if((hour==almH)&&(min==almM)&&(almPm==pm)){
 		P2OUT &= ~0x80;//send alarm beacon on p1.7
 		almWatch=1;
 	}
@@ -453,6 +474,9 @@ __interrupt void Port_2(void)
 	else if((P2IN & 0x07) == 0x03){//p2.2
 		button=1;
 		whatButton=3;
+	}
+	else if((P2IN & 0x10) == 0x00){//p2.4
+
 	}
 
 
