@@ -15,7 +15,8 @@
 
 //interrupt handlers
 __interrupt void Timer_A (void);
-__interrupt void Port_1(void);
+__interrupt void Port_2(void);
+__interrupt void Port_4(void);
 
 
 /* received message handler */
@@ -166,7 +167,13 @@ static void processMessage(linkID_t lid, uint8_t msg[SENT_LENGTH], uint8_t len)
 	return;
 }
 
-void sendTemp(){}
+void sendTemp(){
+
+	//translate temp into 8 bit number
+
+
+
+}
 
 /*------------------------------------------------------------------------------
  *interrupt service routines
@@ -188,10 +195,10 @@ __interrupt void Timer_A(void){
 }
 
 
-#pragma vector=PORT1_VECTOR
-__interrupt void Port_1(void){
+#pragma vector=PORT2_VECTOR
+__interrupt void Port_2(void){
 
-	for(i=0;i<50000;i++){}//debounce for 50ms
+	for(i=0;i<50000;i++);//debounce for 50ms
 
 	if((P2IN & 0x07) == 0x06){//p2.0
 		button=1;
@@ -209,3 +216,16 @@ __interrupt void Port_1(void){
 	P2IFG &= 0x00; //clear interrupt flag
 	_bic_SR_register_on_exit(LPM3_bits);//clear flag
  }
+
+#pragma vector=PORT4_VECTOR
+__interrupt void Port_4(void){
+
+	//maybe debounce
+	if((P4IN & 0x08) == 0x00){//p4.3
+			sendTemp();
+		}
+
+	P4IFG &= 0x00; //clear interrupt flag
+
+	_bic_SR_register_on_exit(LPM3_bits);//clear flag
+}
