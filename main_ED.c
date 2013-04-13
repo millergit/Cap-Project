@@ -124,7 +124,6 @@ static void config_ports(){
 
 void handleButton(){
 
-	if(button){
 		switch(whatButton){
 		case 0://mode
 
@@ -139,7 +138,6 @@ void handleButton(){
 
 			break;
 		}
-	}
 
 }
 

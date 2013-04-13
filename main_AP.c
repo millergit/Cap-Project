@@ -33,7 +33,7 @@ unsigned int temp[3];
 
 
 //fuctions
-void handleButton();
+void handleButton(int whatButton);
 void initVars();
 void sendTemp();
 
@@ -112,7 +112,7 @@ static void config_interrupts(){
 
 void handleButton(){
 
-	if (button){
+
 		switch(whatButton){
 		case 0://mode
 			//simulate 110
@@ -133,9 +133,8 @@ void handleButton(){
 		default:
 			break;
 		}
-		buttonSim=1;
-		button=0;
-	}
+		buttonSim=1;//set to be cleared in 100ms.
+
 }
 
 
@@ -170,7 +169,7 @@ static void processMessage(linkID_t lid, uint8_t msg[SENT_LENGTH], uint8_t len)
 void sendTemp(){
 
 	//translate temp into 8 bit number
-
+	//options 2.3,2.4, 4.3,4.4,4.5
 
 
 }
@@ -185,10 +184,10 @@ __interrupt void Timer_A(void){
 	//wake each 1/10th second and send temp data
 	sendTemp();
 
-	if(buttonSim){
+	if(buttonSim){//button sim clear
 		buttonSim++;
 		if(buttonSim>2){
-			P1OUT |= 0xFF //button clear - NOT FINAL
+			P1OUT |= 0xFF
 		}
 	}
 
@@ -198,19 +197,18 @@ __interrupt void Timer_A(void){
 #pragma vector=PORT2_VECTOR
 __interrupt void Port_2(void){
 
+	unsigned int i;
 	for(i=0;i<50000;i++);//debounce for 50ms
 
+	//TEMPORARY CODE
 	if((P2IN & 0x07) == 0x06){//p2.0
-		button=1;
-		whatButton=1;
+		handleButton(1);
 	}
 	else if((P2IN & 0x07) == 0x05){//p2.1
-		button=1;
-		whatButton=2;
+		handleButton(2);
 	}
 	else if((P2IN & 0x07) == 0x03){//p2.2
-		button=1;
-		whatButton=3;
+		handleButton(3);
 	}
 
 	P2IFG &= 0x00; //clear interrupt flag

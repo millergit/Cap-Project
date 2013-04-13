@@ -24,7 +24,7 @@ unsigned int tube[6];//1 is hour
 unsigned int tubeSel, digit;
 
 //clock fuctions
-void handleButton();
+void handleButton(int whatButton);
 void setTubes();
 void display();
 void clockTick();
@@ -34,14 +34,13 @@ void initVars();
 
 int main(void) {
     WDTCTL = WDTPW + WDTHOLD;	// Stop watchdog timer
+    config_clocks();
 	config_interrupts();
 	config_ports();
 	initVars();
 
 	while(1){
 
-
-		handleButton();
 		setTubes();
 
 		for(tubeSel=0;tubeSel<6;tubeSel++){
@@ -88,11 +87,15 @@ void initVars(){
 	month = 1;
 	day = 1;
 	year = 2000;
-	sec,min,pm,almM,almPm = 0;
-	hour,almH = 12;
-	temp[0],temp[1],temp[2] = 0;
-	mode = 0;
-	almWatch = 0;
+	sec=0;
+	min=0;
+	pm=0;
+	almM=0;
+	almPm=0;
+	hour=0;
+	almH = 12;
+	mode=0;
+	almWatch=0;;
 	tubeSel = 6;
 	digit=0;
 	int i;
@@ -103,6 +106,7 @@ static void config_ports(){
 	//p1.0 is pm led OUT
 	//p1.1  is Z OUT
 	//p1.4-1.7 are X OUT
+
 	//p2.0-2.2 are modes IN
 	//p2.3 OUT to ez430
 	//p2.4-2.6 from ez430 IN
@@ -116,7 +120,7 @@ static void config_ports(){
 	P2REN |= 0x7F;//enable resistor
 	P2OUT |= 0xFF;//alarm flag start high//pullup resistor
 	P2IES |= 0x7F;//high to low transition to generate
-	P2IE |= 0x7F;//interrupt enable
+	P2IE |= 0x7F;//interrupt enable 0111 1111
 	P2IFG &= 0x80;//clear flag to start
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
@@ -127,9 +131,9 @@ static void config_ports(){
  *functional routines
 ------------------------------------------------------------------------------*/
 
-void handleButton(){
+void handleButton(int whatButton){
 
-	if (button){
+
 		switch(whatButton){
 		case 1://mode
 			mode++;
@@ -227,8 +231,6 @@ void handleButton(){
 			}
 			break;
 		}
-		button=0;//button handled
-	}
 }
 
 void setTubes(){
@@ -276,7 +278,7 @@ void display(){
 	//z is 1
 	//2,3 are 2 to 4
 	//x is 4-7
-	int i;
+	unsigned int i;
 	P1OUT |= 0xF0;//set out to all ones momentarily
 	digit = tube[tubeSel];
 
@@ -347,6 +349,8 @@ void display(){
 void getTemp(){
 
 	P2OUT |= 0x08;//request temp in the form of 8 bit value
+
+	unsigned int i=0;
 
 	do{
 
@@ -459,26 +463,24 @@ __interrupt void Timer1_A0 (void)
 __interrupt void Port_2(void)
  {
 
-	P2IFG &= 0x00; //clear interrupt flag
-	int i;
-	for(i=0;i<50000;i++){}//debounce for 50ms
+	unsigned int i;
+	for(i=0;i<50000;i++);//debounce for 50ms
 
-	if((P2IN & 0x07) == 0x06){//p2.0
-		button=1;
-		whatButton=1;
+	if((P2IN & 0x01) == 0x00){//0000 0110 p2.0
+		handleButton(1);
 	}
-	else if((P2IN & 0x07) == 0x05){//p2.1
-		button=1;
-		whatButton=2;
+	if((P2IN & 0x05) == 0x00){//0000 0101 p2.1
+		handleButton(2);
 	}
-	else if((P2IN & 0x07) == 0x03){//p2.2
-		button=1;
-		whatButton=3;
+	if((P2IN & 0x04) == 0x00){//0000 0011 p2.2
+		handleButton(3);
 	}
+
 	else if((P2IN & 0x10) == 0x00){//p2.4
 
 	}
 
+	P2IFG = 0x00;//clear interrupt flag
 
 	_bic_SR_register_on_exit(LPM3_bits);//clear flag
  }
