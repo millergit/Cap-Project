@@ -110,6 +110,7 @@ static void config_ports(){
 	TA1CCR1 = 3;//4000Hz 50% duty
 	TA1CCTL1 = OUTMOD_7;
 
+	P2SEL = 0x40;//select PWM out
 	P2DIR = 0xFF;//all output
 	P2OUT |= 0x00; //p2.7 is pullup resistor
 
