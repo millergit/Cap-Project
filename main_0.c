@@ -12,10 +12,10 @@ static void config_ports();
 
 //interrupt handlers
 __interrupt void Port_2(void);
-__interrupt void Timer1_A0 (void);
+__interrupt void Timer0_A0 (void);
 
 //clock variables
-unsigned int month, day, year, sec, min, hour, pm, mode, button, whatButton;
+unsigned int month, day, year, sec, min, hour, pm, mode, whatButton;
 unsigned int almH, almM, almPm, almWatch;
 unsigned int temp;
 
@@ -33,8 +33,9 @@ void checkAlarm();
 void initVars();
 
 int main(void) {
-    WDTCTL = WDTPW + WDTHOLD;	// Stop watchdog timer
-    config_clocks();
+	WDTCTL = WDTPW + WDTHOLD;	// Stop watchdog timer
+
+	config_clocks();
 	config_interrupts();
 	config_ports();
 	initVars();
@@ -98,6 +99,7 @@ void initVars(){
 	almWatch=0;;
 	tubeSel = 6;
 	digit=0;
+	whatButton=0;
 	int i;
 	for(i=0;i<6;i++){tube[i]=0;}
 }
@@ -134,56 +136,56 @@ static void config_ports(){
 void handleButton(int whatButton){
 
 
-		switch(whatButton){
-		case 1://mode
-			mode++;
-			mode=mode%4;
-			if(mode==2){//if alm mode
-					if(almPm){
-						P1OUT |= 0x01;
-					}
-					else{
-						P1OUT &= ~01;
-					}
-				}
-				else{
-					if(pm){
-						P1OUT |= 0x01;
-					}
-					else{
-						P1OUT &= ~01;
-						}
-				}
-			break;
-		case 2://hour
-			switch(mode){
-			case 0://time
-				hour++;
-				sec=0;
-				if(hour>12){
-					hour=1;
-					pm ^= 1;
-				}
-				break;
-			case 1://date
-				month++;
-				sec=0;
-				if(month>12){
-					year++;
-					if(year>2099){year=2000;}
-				}
-				break;
-			case 2://alarm set
-				almH++;
-				if(almH>12){
-					almH=1;
-					almPm ^= 1;
-				}
-				break;
-			default:
-				break;
+	switch(whatButton){
+	case 1://mode
+		mode++;
+		mode=mode%4;
+		if(mode==2){//if alm mode
+			if(almPm){
+				P1OUT |= 0x01;
+			}
+			else{
+				P1OUT &= ~01;
+			}
+		}
+		else{
+			if(pm){
+				P1OUT |= 0x01;
+			}
+			else{
+				P1OUT &= ~01;
+			}
+		}
+		break;
+	case 2://hour
+		switch(mode){
+		case 0://time
+			hour++;
+			sec=0;
+			if(hour>12){
+				hour=1;
+				pm ^= 1;
 			}
 			break;
+		case 1://date
+			month++;
+			sec=0;
+			if(month>12){
+				year++;
+				if(year>2099){year=2000;}
+			}
+			break;
+		case 2://alarm set
+			almH++;
+			if(almH>12){
+				almH=1;
+				almPm ^= 1;
+			}
+			break;
+		default:
+			break;
+		}
+		break;
 		case 3://min
 			switch(mode){
 			case 0://time
@@ -230,7 +232,7 @@ void handleButton(int whatButton){
 				break;
 			}
 			break;
-		}
+	}
 }
 
 void setTubes(){
@@ -447,8 +449,8 @@ void clockTick(){
 /*------------------------------------------------------------------------------
  *interrupt service routines
 ------------------------------------------------------------------------------*/
-#pragma vector=TIMER1_A0_VECTOR
-__interrupt void Timer1_A0 (void)
+#pragma vector=TIMER0_A0_VECTOR
+__interrupt void Timer0_A0 (void)
 {
 
 	clockTick();
@@ -461,7 +463,7 @@ __interrupt void Timer1_A0 (void)
 
 #pragma vector=PORT2_VECTOR
 __interrupt void Port_2(void)
- {
+{
 
 	unsigned int i;
 	for(i=0;i<50000;i++);//debounce for 50ms
@@ -469,18 +471,14 @@ __interrupt void Port_2(void)
 	if((P2IN & 0x01) == 0x00){//0000 0110 p2.0
 		handleButton(1);
 	}
-	if((P2IN & 0x05) == 0x00){//0000 0101 p2.1
+	if((P2IN & 0x02) == 0x00){//0000 0101 p2.1
 		handleButton(2);
 	}
 	if((P2IN & 0x04) == 0x00){//0000 0011 p2.2
 		handleButton(3);
 	}
 
-	else if((P2IN & 0x10) == 0x00){//p2.4
-
-	}
-
 	P2IFG = 0x00;//clear interrupt flag
 
 	_bic_SR_register_on_exit(LPM3_bits);//clear flag
- }
+}

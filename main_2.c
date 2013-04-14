@@ -20,6 +20,8 @@ unsigned int tubeSel, digit;
 //clock fuctions
 void getTube();
 void setTube();
+void alarmOn();
+void alarmOff();
 void initVars();
 
 
@@ -58,27 +60,23 @@ static void config_interrupts(){
 }
 
 void initVars(){
-	tube5,tube6 = 0;
+	tube3,tube4 = 0;
 	tubeSel, digit = 0;
 }
 
 static void config_ports(){
 
-	//p1.0-p1.3 tube 5 OUT
-	//p1.4-p1.7 tube 6 OUT
+	//p1.0-p1.3 tube 3 OUT
+	//p1.4-p1.7 tube 4 OUT
 
 	//p2.0-p2.3 X IN
 	//p2.4 Z IN
-	//p2.5 mode IN
-	//p2.6,p2.7 2 to 4 LEDs OUT
+
 
 	P1DIR = 0xFF;//all out
 	P1OUT &= 0x00;
 
-	P2DIR = 0xC0;//p2.7 IN
-	P2REN |= 0x20;//enable resistor
-	P2OUT |= 0x40; //p2.7 is pullup resistor
-	P2IE &= 0x00;//P2 interrupts off
+	P2DIR = 0x00;//p2.7 IN
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
@@ -89,15 +87,15 @@ static void config_ports(){
 
 void getTube(){
 
-	if((P2IN & 0x10) == 0x00){//tube 5
-		tubeSel=5;
-		tube5 = (P2IN & 0x0F);
-		tube5 |= 0xF0;
+	if((P2IN & 0x10) == 0x00){//tube 3
+		tubeSel=3;
+		tube3 = (P2IN & 0x0F);
+		tube3 |= 0xF0;
 	}
-	else if((P2IN & 0x10) == 0x00){//tube 6
-		tubeSel=6;
-		tube6 = ((P2IN & 0x0F)<<4);// shift to match other port
-		tube6 |= 0x0F;
+	else if((P2IN & 0x10) == 0x00){//tube 4
+		tubeSel=4;
+		tube4 = ((P2IN & 0x0F)<<4);// shift to match other port
+		tube4 |= 0x0F;
 	}
 
 
@@ -111,12 +109,12 @@ void setTube(){
 	temp1 &= P1OUT;//store port
 
 
-	if(tubeSel==5){
-		temp2 &= tube5;
+	if(tubeSel==3){
+		temp2 &= tube3;
 		temp1 |= 0x0F;
 	}
-	else if(tubeSel==6){
-		temp2 &= tube6;
+	else if(tubeSel==4){
+		temp2 &= tube4;
 		temp1 |= 0xF0;
 	}
 

@@ -32,81 +32,82 @@ void main (void)
 
 	SMPL_Init(0);
 
-	uint8_t msg[4];
+	uint8_t msg[2];
 
 	while (1)
-	  {
-	    /* Go to sleep, waiting for interrupt every second to acquire data */
-		doAction();
-	    __bis_SR_register(LPM3_bits);
+	{
+		/* Go to sleep, waiting for interrupt every second to acquire data */
 
-	    /* Time to measure */
-	    if (sSelfMeasureSem) {
-	      volatile long temp;
-	      int degC, volt;
-	      int results[2];
+		__bis_SR_register(LPM3_bits);
 
-	      /* Get temperature */
-	      ADC10CTL1 = INCH_10 + ADC10DIV_4;       // Temp Sensor ADC10CLK/5
-	      ADC10CTL0 = SREF_1 + ADC10SHT_3 + REFON + ADC10ON + ADC10IE + ADC10SR;
-	      /* Allow ref voltage to settle for at least 30us (30us * 8MHz = 240 cycles)
-	       * See SLAS504D for settling time spec
-	       */
-	      __delay_cycles(240);
-	      ADC10CTL0 |= ENC + ADC10SC;             // Sampling and conversion start
-	      __bis_SR_register(CPUOFF + GIE);        // LPM0 with interrupts enabled
-	      results[0] = ADC10MEM;                  // Retrieve result
-	      ADC10CTL0 &= ~ENC;
+		/* Time to measure */
+		if (sSelfMeasureSem) {
+			volatile long temp;
+			int degC, volt;
+			int results[2];
 
-	      /* Get voltage */
-	      ADC10CTL1 = INCH_11;                     // AVcc/2
-	      ADC10CTL0 = SREF_1 + ADC10SHT_2 + REFON + ADC10ON + ADC10IE + REF2_5V;
-	      __delay_cycles(240);
-	      ADC10CTL0 |= ENC + ADC10SC;             // Sampling and conversion start
-	      __bis_SR_register(CPUOFF + GIE);        // LPM0 with interrupts enabled
-	      results[1] = ADC10MEM;                  // Retrieve result
+			/* Get temperature */
+			ADC10CTL1 = INCH_10 + ADC10DIV_4;       // Temp Sensor ADC10CLK/5
+			ADC10CTL0 = SREF_1 + ADC10SHT_3 + REFON + ADC10ON + ADC10IE + ADC10SR;
+			/* Allow ref voltage to settle for at least 30us (30us * 8MHz = 240 cycles)
+			 * See SLAS504D for settling time spec
+			 */
+			__delay_cycles(240);
+			ADC10CTL0 |= ENC + ADC10SC;             // Sampling and conversion start
+			__bis_SR_register(CPUOFF + GIE);        // LPM0 with interrupts enabled
+			results[0] = ADC10MEM;                  // Retrieve result
+			ADC10CTL0 &= ~ENC;
 
-	      /* Stop and turn off ADC */
-	      ADC10CTL0 &= ~ENC;
-	      ADC10CTL0 &= ~(REFON + ADC10ON);
+			/* Get voltage */
+			ADC10CTL1 = INCH_11;                     // AVcc/2
+			ADC10CTL0 = SREF_1 + ADC10SHT_2 + REFON + ADC10ON + ADC10IE + REF2_5V;
+			__delay_cycles(240);
+			ADC10CTL0 |= ENC + ADC10SC;             // Sampling and conversion start
+			__bis_SR_register(CPUOFF + GIE);        // LPM0 with interrupts enabled
+			results[1] = ADC10MEM;                  // Retrieve result
 
-	      /* oC = ((A10/1024)*1500mV)-986mV)*1/3.55mV = A10*423/1024 - 278
-	       * the temperature is transmitted as an integer where 32.1 = 321
-	       * hence 4230 instead of 423
-	       */
-	      temp = results[0];
-	      degC = ((temp - 673) * 4230) / 1024;
-	      if( (*tempOffset) != 0xFFFF )
-	      {
-	        degC += (*tempOffset);
-	      }
+			/* Stop and turn off ADC */
+			ADC10CTL0 &= ~ENC;
+			ADC10CTL0 &= ~(REFON + ADC10ON);
 
-	      /* message format,  UB = upper Byte, LB = lower Byte
+			/* oC = ((A10/1024)*1500mV)-986mV)*1/3.55mV = A10*423/1024 - 278
+			 * the temperature is transmitted as an integer where 32.1 = 321
+			 * hence 4230 instead of 423
+			 */
+			temp = results[0];
+			degC = ((temp - 673) * 4230) / 1024;
+			if( (*tempOffset) != 0xFFFF )
+			{
+				degC += (*tempOffset);
+			}
+
+			/* message format,  UB = upper Byte, LB = lower Byte
 	      -------------------------------
 	      |degC LB | degC UB |  volt LB |
 	      -------------------------------
 	         0         1          2
-	      */
-	      temp = results[1];
-	      volt = (temp*25)/512;
-	      msg[0] = degC&0xFF;
-	      msg[1] = (degC>>8)&0xFF;
-	      msg[2] = volt;
+			 */
+			temp = results[1];
+			volt = (temp*25)/512;
 
-	      /* Get radio ready...awakens in idle state */
-	      SMPL_Ioctl( IOCTL_OBJ_RADIO, IOCTL_ACT_RADIO_AWAKE, 0);
+			msg[0] = degC&0xFF;
+			msg[1] = (degC>>8)&0xFF;
+			msg[2] = volt;
+
+			/* Get radio ready...awakens in idle state */
+			SMPL_Ioctl( IOCTL_OBJ_RADIO, IOCTL_ACT_RADIO_AWAKE, 0);
 
 
-	      /* No AP acknowledgement, just send a single message to the AP */
-	      SMPL_Send(SMPL_LINKID_USER_UUD, msg, sizeof(msg));
+			/* No AP acknowledgement, just send a single message to the AP */
+			SMPL_Send(SMPL_LINKID_USER_UUD, msg, sizeof(msg));
 
-	      /* Put radio back to sleep */
-	      SMPL_Ioctl( IOCTL_OBJ_RADIO, IOCTL_ACT_RADIO_SLEEP, 0);
+			/* Put radio back to sleep */
+			SMPL_Ioctl( IOCTL_OBJ_RADIO, IOCTL_ACT_RADIO_SLEEP, 0);
 
-	      /* Done with measurement, disable measure flag */
-	      sSelfMeasureSem = 0;
-	    }
-	  }
+			/* Done with measurement, disable measure flag */
+			sSelfMeasureSem = 0;
+		}
+	}
 
 }
 
@@ -118,26 +119,25 @@ static void config_ports(){
 	//2.0-2.4
 	//4.3-4.6
 
+	P2DIR = 0x00;
+	P2REN = 0x0F;
+	P2OUT = 0x0F;//pullup
+	P2IES 0x0F;
+	P2IE = 0x0F;//pins 0,1,2,3 buttons
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
 
-void handleButton(){
+void handleButton(int whatButton){
 
-		switch(whatButton){
-		case 0://mode
+	unit8_t msg[2];
 
-			break;
-		case 1://hour
+	msg[0]=2;
+	msg[1]=whatButton;
 
-			break;
-		case 2://min
 
-			break;
-		case 3://snooze
+	SMPL_Send(SMPL_LINKID_USER_UUD, msg, sizeof(msg));
 
-			break;
-		}
 
 }
 
@@ -148,21 +148,39 @@ void handleButton(){
 #pragma vector=ADC10_VECTOR
 __interrupt void ADC10_ISR(void)
 {
-  __bic_SR_register_on_exit(CPUOFF);        // Clear CPUOFF bit from 0(SR)
+	__bic_SR_register_on_exit(CPUOFF);        // Clear CPUOFF bit from 0(SR)
 }
 
 #pragma vector=TIMERA0_VECTOR
 __interrupt void Timer_A (void)
 {
-  sSelfMeasureSem = 1;
-  __bic_SR_register_on_exit(LPM3_bits);        // Clear LPM3 bit from 0(SR)
+	sSelfMeasureSem = 1;
+	__bic_SR_register_on_exit(LPM3_bits);        // Clear LPM3 bit from 0(SR)
 }
 
-#pragma vector=PORT1_VECTOR
-__interrupt void Port_1(void){
+#pragma vector=PORT2_VECTOR
+__interrupt void Port_2(void){
 
-	P1IFG &= 0x00;//clear flags
+	unsigned int i;
+	for(i=0;i<50000;i++);//debounce for 50ms
 
-	//handle buttons
-	__bic_SR_register_on_exit(LPM3_bits);
+	SMPL_Ioctl( IOCTL_OBJ_RADIO, IOCTL_ACT_RADIO_AWAKE, 0);
+
+	if((P2IN & 0x01) == 0x00){//p2.0 mode
+		handleButton(1);
+	}
+	if((P2IN & 0x02) == 0x00){//p2.1 hour
+		handleButton(2);
+	}
+	if((P2IN & 0x04) == 0x00){//p2.2 min
+		handleButton(3);
+	}
+	if((P2IN & 0x08) == 0x00){//p2.3 snooze
+		handleButton(4);
+	}
+
+	SMPL_Ioctl( IOCTL_OBJ_RADIO, IOCTL_ACT_RADIO_SLEEP, 0);
+
+	P2IFG &= 0x00; //clear interrupt flag
+
 }

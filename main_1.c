@@ -16,7 +16,7 @@ __interrupt void nmi(void);
 __interrupt void Timer0_A0(void);
 
 //clock variables
-unsigned int button, whatButton;
+unsigned int whatButton;
 unsigned int almWatch;
 
 //Display items
@@ -33,10 +33,10 @@ void initVars();
 
 
 int main(void) {
-    IE1=NMIIE;                    //enable nmi
-    WDTCTL=WDTPW+WDTHOLD+WDTNMI+WDTNMIES;  //select nmi function on RST/NMI
+	IE1=NMIIE;                    //enable nmi
+	WDTCTL=WDTPW+WDTHOLD+WDTNMI+WDTNMIES;  //select nmi function on RST/NMI
 
-    config_clocks();
+	config_clocks();
 	config_interrupts();
 	config_ports();
 	initVars();
@@ -76,7 +76,6 @@ static void config_interrupts(){
 }
 
 void initVars(){
-	button=0;
 	whatButton=0;
 	almWatch=0;
 	tube1=0;
@@ -164,17 +163,18 @@ void getTube(){
 	unsigned int tempx = 0xFF;
 
 	if((P1IN & 0x01) == 0x00){//if tube1
+		tubeSel = 1;
 		tube1 = ((P1IN & 0x38)<<1);//bit shift to match port 2 tube 1 out
 		tube1 |= 0x80;
 		tempx = ((tube1 & 0x40)<<1);
 		tube1 &= tempx;
 		tube1 |= 0x4F;
-		tubeSel = 1;
 	}
 	else if((P1IN & 0x01) == 0x01){//if tube2
+		tubeSel = 2;
 		tube2 = ((P1IN & 0x78)>>3);//bit shift to match port 2 tube 2 out
 		tube2 |= 0xF0;
-		tubeSel = 2;
+
 	}
 
 }
@@ -188,12 +188,12 @@ void setTube(){
 
 
 	if(tubeSel==1){
-			temp2 &= tube1;
-			temp1 |= 0xB0;
+		temp2 &= tube1;
+		temp1 |= 0xB0;
 	}
 	else if(tubeSel==2){
-			temp2 &= tube2;
-			temp1 |= 0x0F;
+		temp2 &= tube2;
+		temp1 |= 0x0F;
 	}
 
 	temp1 = (temp1 & temp2);//determine new output before changing P2
@@ -215,7 +215,7 @@ __interrupt void Timer0_A0 (void)
 
 #pragma vector=PORT1_VECTOR
 __interrupt void Port_1(void)
- {
+{
 
 	//check if snooze or alarm
 
@@ -232,7 +232,7 @@ __interrupt void Port_1(void)
 	P1IFG &= 0x00; //clear interrupt flag
 	_bic_SR_register_on_exit(LPM3_bits);//clear flag
 
- }
+}
 
 #pragma vector=NMI_VECTOR
 __interrupt void nmi(void)

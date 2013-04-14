@@ -25,11 +25,9 @@ static void processMessage(linkID_t, uint8_t, uint8_t);
 //initialization functions
 static void config_ports();
 static void config_interrupts();
-static volatile unsigned int timerCount = 0;
 
 //clock variables
-unsigned int alarm, mode, button, whatButton, buttonSim;
-unsigned int temp[3];
+unsigned int whatButton, buttonSim;
 
 
 //fuctions
@@ -71,9 +69,6 @@ void main (void)
 			}
 		}
 
-		handleButton();
-
-		sendTemp();
 
 		__bis_SR_register(LPM0_bits + GIE);//sleep in heavenly peace
 	}
@@ -81,8 +76,8 @@ void main (void)
 }
 
 void initVars(){
-	alarm, mode, button, buttonSim, whatButton=0;
-	temp[0],temp[1],temp[2]=0;
+	buttonSim=0;
+	whatButton=0;
 }
 
 static void config_ports(){
@@ -113,27 +108,27 @@ static void config_interrupts(){
 void handleButton(){
 
 
-		switch(whatButton){
-		case 0://mode
-			//simulate 110
+	switch(whatButton){
+	case 1://mode
+		//simulate 110
 
-			break;
-		case 1://hour
-			//simulate 101
+		break;
+	case 2://hour
+		//simulate 101
 
-			break;
-		case 2://min
-			//simulate 011
+		break;
+	case 3://min
+		//simulate 011
 
-			break;
-		case 3://snooze
-			//simulate 0 press out specific pin
+		break;
+	case 4://snooze
+		//simulate 0 press out specific pin
 
-			break;
-		default:
-			break;
-		}
-		buttonSim=1;//set to be cleared in 100ms.
+		break;
+	default:
+		break;
+	}
+	buttonSim=1;//set to be cleared in 100ms.
 
 }
 
@@ -187,7 +182,7 @@ __interrupt void Timer_A(void){
 	if(buttonSim){//button sim clear
 		buttonSim++;
 		if(buttonSim>2){
-			P1OUT |= 0xFF
+			P1OUT |= 0xFF;
 		}
 	}
 
@@ -200,28 +195,27 @@ __interrupt void Port_2(void){
 	unsigned int i;
 	for(i=0;i<50000;i++);//debounce for 50ms
 
-	//TEMPORARY CODE
-	if((P2IN & 0x07) == 0x06){//p2.0
+	if((P2IN & 0x01) == 0x00){//p2.0 mode
 		handleButton(1);
 	}
-	else if((P2IN & 0x07) == 0x05){//p2.1
+	if((P2IN & 0x02) == 0x00){//p2.1 hour
 		handleButton(2);
 	}
-	else if((P2IN & 0x07) == 0x03){//p2.2
+	if((P2IN & 0x04) == 0x00){//p2.2 min
 		handleButton(3);
 	}
 
 	P2IFG &= 0x00; //clear interrupt flag
 	_bic_SR_register_on_exit(LPM3_bits);//clear flag
- }
+}
 
 #pragma vector=PORT4_VECTOR
 __interrupt void Port_4(void){
 
 	//maybe debounce
 	if((P4IN & 0x08) == 0x00){//p4.3
-			sendTemp();
-		}
+		sendTemp();
+	}
 
 	P4IFG &= 0x00; //clear interrupt flag
 
