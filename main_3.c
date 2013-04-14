@@ -4,7 +4,7 @@
  * main.c
  */
 
-//MSP430 NUMBER 1
+//MSP430 NUMBER 3
 
 static void config_clocks();
 static void config_interrupts();
