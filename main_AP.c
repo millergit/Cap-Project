@@ -163,8 +163,22 @@ static void processMessage(linkID_t lid, uint8_t msg[SENT_LENGTH], uint8_t len)
 
 void sendTemp(){
 
-	//translate temp into 8 bit number
-	//options 2.3,2.4, 4.3,4.4,4.5
+	//UART
+	//p3.4 Tx
+	//p3.5 Rx
+	P3SEL |= 0x30; // P3.4,5 = USART0 TXD/RXD
+	ME1 |= UTXE0 + URXE0; // Enable USART0 TXD/RXD
+	U0CTL |= CHAR; // 8-bit character
+	U0TCTL |= SSEL3; // UCLK =SMCLK 8MHz
+	U0BR0 = 0xD0; // 8MHz/38400BAUD Fit baud to 16 bits - 208.333 -> 11010000...
+	U0BR1 = 0x00;
+	U0MCTL = 0x11; /* uart0 8000000Hz 38406bps */
+	U0CTL &= ˜SWRST; // Initialize USART state machine
+	IE1 |= URXIE0 + UTXIE0; // Enable USART0 RX/TX interrupt
+
+
+	 while (!(IFG2&UCA0TXIFG));                 // USCI_A0 TX buffer ready?
+	  UCA0TXBUF = 'H';                     // TX -> RXed character
 
 
 }
