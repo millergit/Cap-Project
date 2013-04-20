@@ -71,7 +71,7 @@ static void config_interrupts(){
 
 	TA0CTL = TASSEL_1 + TACLR + MC_1; //ACLK, clear TAR, count up
 	CCTL0 = CCIE; // CCR0 interrupt enabled
-	TA0CCR0 = 0x2EDF; //12000/(11999+1) = interrupt @ 1Hz
+	TA0CCR0 = 11999; //12000/(11999+1) = interrupt @ 1Hz
 
 }
 
@@ -99,9 +99,16 @@ static void config_ports(){
 	P1DIR = 0x00;// all input
 	P1REN |= 0x84;//0b1000 0100 // enable resistors for snooze and alarm switch
 	P1OUT &= 0x84;//0b1000 0100 //pull up type resistor
-	P1IE |= 0x82;//0b1000 0010 //alm in and snooze pins trigger interrupts
-	P1IES |= 0x82;//0b1000 0010 //alm in and snooze on hi/lo transition
+	P1IE |= 0x86;//0b1000 0110 //alm in, snooze, alm switch
+	
+	//ONLY TRIGGER alm switch 1.2 FOR EDGE THAT 
+	//REPRESENTS ALARM OFF --> 0x82 or 0x86 also modify P1OUT or resistor as needed
+	P1IES |= 0x86;//0b1000 0010 //alm in and snooze on hi/lo transition
 	P1IFG &= 0x00;//clear flag
+	
+	P2SEL = 0x40;//select PWM out
+	P2DIR = 0xFF;//all output
+	P2OUT |= 0x00; //p2.7 is pullup resistor
 
 	//1.2 PWM
 	TA1CTL = TASSEL_1 + MC_0;//aclk @12000Hz
@@ -109,9 +116,6 @@ static void config_ports(){
 	TA1CCR1 = 3;//4000Hz 50% duty
 	TA1CCTL1 = OUTMOD_7;
 
-	P2SEL = 0x40;//select PWM out
-	P2DIR = 0xFF;//all output
-	P2OUT |= 0x00; //p2.7 is pullup resistor
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
@@ -124,14 +128,16 @@ void handleButton(int whatButton){
 
 	switch(whatButton){
 	case 1://alarm
-		if((P1IN & 0x40) == 0x00){//alarm switch on
+		if((P1IN & 0x04)== 0x04){//alarm switch high = on
 			alarmOn();
-			almWatch = 1;
+			almTrigger = 1;
 		}
 		break;
-	case 2://snooze
+	case 2://alarm switch
+		almTrigger =0;
+		break;
+	case 3://snooze
 		alarmOff();
-		almWatch = 0;
 		break;
 	default:
 		break;
@@ -142,19 +148,34 @@ void handleButton(int whatButton){
 
 
 void alarmOn(){
+
 	TA1CTL |= MC_1;//count up
+	almWatch=1;
+		
 }
 
 void alarmOff(){
+
 	TA1CTL &= MC_0;//stop count
+	
+	if(almTrigger){
+		snoozeCount=1;
+	}
+	
 }
 
 void checkAlarm(){
 	if(almWatch){
 		almWatch++;
-		if(almWatch == 60){//60 second auto off
+		if(almWatch == 600){//10 min auto off
 			alarmOff();
 			almWatch = 0;
+		}
+	}
+	if(snoozeCount){//snooze button hit - alarm not reset
+		snoozeCount++;
+		if(almOn=600){//10m snooze
+			alarmOn();
 		}
 	}
 }
@@ -225,8 +246,12 @@ __interrupt void Port_1(void)
 	if((P1IN & 0x02) == 0x00){//p1.1 alm
 		handleButton(1);
 	}
-	if((P1IN & 0x80) == 0x00){//p1.7 snooze
+	if((P1IN & 0x04) == 0x00){//p1.2 alm switch		
+		//ONLY TRIGGER FOR EDGE THAT REPRESENTS ALARM OFF
 		handleButton(2);
+	}
+	if((P1IN & 0x80) == 0x00){//p1.7 snooze
+		handleButton(3);
 	}
 
 	P1IFG &= 0x00; //clear interrupt flag
