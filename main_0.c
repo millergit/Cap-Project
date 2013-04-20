@@ -1,4 +1,4 @@
-#include <msp430.h> 
+#include <msp430.h>
 
 /*
  * main.c
@@ -22,6 +22,9 @@ unsigned int temp;
 //Display items
 unsigned int tube[6];//1 is hour
 unsigned int tubeSel, digit;
+unsigned char tubeTable[10]={0x0F,0x1F,0x2F,0x3F,0x4F,
+							0x5F,0x6F,0x7F,0x8F,0x9F};
+unsigned char nmizTable[6]={0xC7,0xCF,0xD7,0xDF,0xE7,0xEF};
 
 //clock fuctions
 void handleButton(int whatButton);
@@ -48,7 +51,7 @@ int main(void) {
 			display();
 		}
 
-		__bis_SR_register(LPM3_bits + GIE);//sleep in heavenly peace
+		__bis_SR_register(LPM1_bits + GIE);//sleep in heavenly peace
 	}
 }
 
@@ -76,7 +79,7 @@ static void config_interrupts(){
 	//no crystal, use more accurate DO clock
 	TA0CTL = TASSEL_2 + TACLR + MC_1 + ID_3; //SMCLK, clear TAR, count up, SM/8 = 15625Hz;
 	CCTL0 = CCIE; // CCR0 interrupt enabled
-	CCR0 = 0x3D08; //15625/(15624+1) = interrupt @ 1Hz
+	CCR0 = 15624; //15625/(15624+1) = interrupt @ 1Hz
 
 	//crystal
 	//CCR0 = 0x7FFF; //32768/(32767) = interrupt @ 1Hz
@@ -106,24 +109,33 @@ void initVars(){
 
 static void config_ports(){
 	//p1.0 is pm led OUT
-	//p1.1  is Z OUT
+	//p1.1 Rx
+	//p1.2 Tx
+	//p1.3 NOTHING	
 	//p1.4-1.7 are X OUT
 
 	//p2.0-2.2 are modes IN
-	//p2.3 OUT to ez430
-	//p2.4-2.6 from ez430 IN
+	
+	//p2.3 is Z OUT
+	//p2.4, p2.5 2 to 4 converter OUT
+	//p2.6 NOTHING
 	//p2.7 alarm OUT
-	//default is input
 
-	P1DIR = 0xFF;//all output
-	P1OUT = 0x0C;//nmi select gnd
+	//config UART
+	P1SEL |= 0x06;//0b0000 0110
+	
+	//end UART
+	
+	P1DIR = 0xF1;//0b11110001
+	P1OUT = 0x00;//nmi select gnd
 
-	P2DIR = 0x80;//p2.7 output
-	P2REN |= 0x7F;//enable resistor
-	P2OUT |= 0xFF;//alarm flag start high//pullup resistor
-	P2IES |= 0x7F;//high to low transition to generate
-	P2IE |= 0x7F;//interrupt enable 0111 1111
-	P2IFG &= 0x80;//clear flag to start
+	P2DIR = 0xB8;//0b1011 1000
+	
+	P2REN |= 0x07;//0b0000 0111 enable resistor
+	P2OUT |= 0x37;//0b0011 0111  2-4 start NMI in gnd//pullup resistor for inputs
+	P2IES |= 0x07;//0b0000 0111    high to low transition to generate
+	P2IE |= 0x07;//interrupt enable 0111 1111
+	P2IFG &= 0x00;//clear flag to start
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
@@ -280,70 +292,27 @@ void display(){
 	//z is 1
 	//2,3 are 2 to 4
 	//x is 4-7
-	unsigned int i;
-	P1OUT |= 0xF0;//set out to all ones momentarily
-	digit = tube[tubeSel];
+	unsigned int i,store1,store2;
+	store1 |= P1OUT;//save port 1 state
+	store1 |= 0xF0;//set pins to change to 1
+	store2 |= P2OUT;//save port 2 state
+	store2 |= 0x38;
 
-	//set output X
-	switch(digit){
-	case 0:
-		P1OUT &= 0x0F;
-		break;
-	case 1:
-		P1OUT &= 0x1F;
-		break;
-	case 2:
-		P1OUT &= 0x2F;
-		break;
-	case 3:
-		P1OUT &= 0x3F;
-		break;
-	case 4:
-		P1OUT &= 0x4F;
-		break;
-	case 5:
-		P1OUT &= 0x5F;
-		break;
-	case 6:
-		P1OUT &= 0x6F;
-		break;
-	case 7:
-		P1OUT &= 0x7F;
-		break;
-	case 8:
-		P1OUT &= 0x8F;
-		break;
-	case 9:
-		P1OUT &= 0x9F;
-		break;
-	}
+	digit = tube[tubeSel];//set digit
+
+	store1 = tubeTable[digit];//determine BCD out
+
+	P1OUT = store1;//set X
 
 	//send NMI with info
-	switch(tubeSel){
-	case 0:
-		P1OUT &= 0xF1;//chip 1 tube 1
-		break;
-	case 1:
-		P1OUT &= 0xF2;//chip 1 tube 2
-		break;
-	case 2:
-		P1OUT &= 0xF5;//chip 2 tube 3
-		break;
-	case 3:
-		P1OUT &= 0xF7;//chip 2 tube 4
-		break;
-	case 4:
-		P1OUT &= 0xF9;//chip 3 tube 5
-		break;
-	case 5:
-		P1OUT &= 0xFB;//chip 3 tube 6
-		break;
-	}
+	store2 = nmizTable[tubeSel];//determine nmi and Z
+
+	P2OUT = store2;//set nmi and Z
 
 	//hold for 10000 cycles
 
 	for(i=0;i<10000;i++){}
-	P1OUT |= 0x0C;//clear NMI
+	P2OUT |= 0x30;//clear NMI
 
 
 }
@@ -456,7 +425,7 @@ __interrupt void Timer0_A0 (void)
 	clockTick();
 	checkAlarm();
 	getTemp();
-	_bic_SR_register_on_exit(LPM3_bits); //clear flag
+	LPM1_EXIT; //clear flag
 
 
 }
@@ -480,5 +449,5 @@ __interrupt void Port_2(void)
 
 	P2IFG = 0x00;//clear interrupt flag
 
-	_bic_SR_register_on_exit(LPM3_bits);//clear flag
+	LPM1_EXIT;//clear flag
 }
