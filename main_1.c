@@ -255,7 +255,7 @@ __interrupt void Port_1(void)
 	}
 
 	P1IFG &= 0x00; //clear interrupt flag
-	_bic_SR_register_on_exit(LPM3_bits);//clear flag
+	LPM1_EXIT;//clear flag
 
 }
 
