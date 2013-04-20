@@ -317,38 +317,7 @@ void display(){
 }
 
 void getTemp(){
-
-	P2OUT |= 0x08;//request temp in the form of 8 bit value
-
-	unsigned int i=0;
-
-	do{
-
-		if((P2IN & 0x20) == 0x20){//data ready when 1
-
-			if(i<5){
-				temp |= ((P2IN & 0x10)>>(4-i));//fill first 5 bits
-			}
-			else{
-				temp |= ((P2IN & 0x10)<<(i-4));//fill last 3
-			}
-
-			i++;
-		}
-
-		do{//fall through if 0
-			if((P2IN & 0x20)==0x00){//wait for next bit
-				break;
-			}
-		}while(1);
-
-		if((P2IN & 0x40) == 0x40){//transfer complete
-			break;
-		}
-	}
-	while(1);
-
-	P2OUT &= ~0x08;//turn off request
+	//uart receive temp
 }
 
 void checkAlarm(){
