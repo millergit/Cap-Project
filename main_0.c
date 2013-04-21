@@ -13,6 +13,7 @@ static void config_ports();
 //interrupt handlers
 __interrupt void Port_2(void);
 __interrupt void Timer0_A0 (void);
+__interrupt void uart0_rx (void);
 
 //clock variables
 unsigned int month, day, year, sec, min, hour, pm, mode, whatButton;
@@ -36,6 +37,9 @@ void initVars();
 
 int main(void) {
 	WDTCTL = WDTPW + WDTHOLD;	// Stop watchdog timer
+
+	volatile unsigned int i;
+	for(i=0;i<0xFFFF;i++);//delay brain so that others may initialize first
 
 	config_clocks();
 	config_interrupts();
@@ -121,7 +125,16 @@ static void config_ports(){
 	//p2.7 alarm OUT
 
 	//config UART
-	P1SEL |= 0x06;//0b0000 0110
+	P1SEL |= 0x06;//1.1 Rx 1.2 tx
+	//copy pasted below
+	UCA0CTL0 |= CHAR;//8-bit character
+	UCA0CTL1 |= UCSSEL3;// UCLK =SMCLK 8MHz
+	UCA0CTL1 &= ˜UCSSWRST;//Initialize USART state machine
+	UCA0BR0 = 0x1A;// 1MHz/38400BAUD Fit baud to 16 bits - 26.042 -> 00011010...
+	UCA0BR1 = 0x00;
+	UCA0MCTL = 0x00; /* uart0 1000000Hz 38461bps */
+	IE2 |= UCA0TXIE + UCA0RXIE;// Enable RX/TX interrupt
+	UCIE |= UCA1TXIE + UCA1RXIE;// Enable TXD/RXD
 	
 	//end UART
 	
@@ -291,7 +304,8 @@ void display(){
 	//z is 1
 	//2,3 are 2 to 4
 	//x is 4-7
-	unsigned int i,store1,store2;
+	unsigned char store1,store2;
+
 	store1 |= P1OUT;//save port 1 state
 	store1 |= 0xF0;//set pins to change to 1
 	store2 |= P2OUT;//save port 2 state
@@ -310,14 +324,17 @@ void display(){
 
 	//hold for 10000 cycles
 
-	for(i=0;i<10000;i++){}
+	for(int i=0;i<10000;i++){}
 	P2OUT |= 0x30;//clear NMI
 
 
 }
 
 void getTemp(){
-	//uart receive temp
+
+	//UART receive
+
+	//clear received flag
 }
 
 void checkAlarm(){
@@ -402,16 +419,15 @@ __interrupt void Timer0_A0 (void)
 __interrupt void Port_2(void)
 {
 
-	unsigned int i;
-	for(i=0;i<50000;i++);//debounce for 50ms
+	for(int i=0;i<50000;i++);//debounce for 50ms
 
-	if((P2IN & 0x01) == 0x00){//0000 0110 p2.0
+	if((P2IN & 0x01) == 0x00){//0000 0110 p2.0 mode
 		handleButton(1);
 	}
-	if((P2IN & 0x02) == 0x00){//0000 0101 p2.1
+	if((P2IN & 0x02) == 0x00){//0000 0101 p2.1 hr
 		handleButton(2);
 	}
-	if((P2IN & 0x04) == 0x00){//0000 0011 p2.2
+	if((P2IN & 0x04) == 0x00){//0000 0011 p2.2 min
 		handleButton(3);
 	}
 
@@ -419,3 +435,11 @@ __interrupt void Port_2(void)
 
 	LPM1_EXIT;//clear flag
 }
+
+#pragma vector=USCA0RX_VECTOR
+__interrupt void uart0_rx (void)
+{
+	temp = UCRXBUF0;
+	IFG2 &= ~UCA0RXIFG;
+}
+

@@ -181,7 +181,7 @@ void checkAlarm(){
 }
 
 void getTube(){
-	unsigned int tempx = 0xFF;
+	unsigned char tempx = 0xFF;
 
 	if((P1IN & 0x01) == 0x00){//if tube1
 		tubeSel = 1;
@@ -202,7 +202,7 @@ void getTube(){
 
 void setTube(){
 
-	unsigned int temp1, temp2;
+	unsigned char temp1, temp2;
 	temp1 = 0xFF;
 	temp2 = 0xFF;
 	temp1 &= P2OUT;//store port
@@ -240,8 +240,7 @@ __interrupt void Port_1(void)
 
 	//check if snooze or alarm
 
-	unsigned int i;
-	for(i=0;i<50000;i++);//debounce for 50ms
+	for(int i=0;i<50000;i++);//debounce for 50ms
 
 	if((P1IN & 0x02) == 0x00){//p1.1 alm
 		handleButton(1);
@@ -264,13 +263,12 @@ __interrupt void nmi(void)
 {
 
 	IFG1&=~NMIIFG;                      //clear nmi interrupt flag
-	unsigned int i;
 	IE1 |= NMIIE;                          // enable nmi
 	WDTCTL = WDTPW + WDTHOLD + WDTNMI + WDTNMIES;    // select nmi function on RST/NMI (hi/lo)
 
 	//debounce slightly
 
-	for(i=0;i<100;i++);
+	for(int i=0;i<100;i++);
 
 	getTube();
 	setTube();

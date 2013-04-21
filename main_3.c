@@ -12,10 +12,12 @@ static void config_ports();
 
 //interrupt handlers
 __interrupt void nmi(void);
+__interrupt void Port_2(void);
 
 //Display items
 unsigned int tube1,tube2;//1 is hour
 unsigned int tubeSel, digit;
+unsigned char twoFourTable = {0x9F,0xBF,0xDF,0xFF};
 
 //clock fuctions
 void getTube();
@@ -69,16 +71,18 @@ static void config_ports(){
 
 	//p2.0-p2.3 X IN
 	//p2.4 Z IN
-	//p2.5 mode IN
-	//p2.6,p2.7 2 to 4 LEDs OUT
+	//p2.5,p2.6 2 to 4 LEDs OUT
+	//p2.7 mode IN
 
 	P1DIR = 0xFF;//all out
 	P1OUT &= 0x00;
 
-	P2DIR = 0xC0;//p2.7 IN
-	P2REN |= 0x20;//enable resistor
-	P2OUT |= 0x40; //p2.7 is pullup resistor
-	P2IE &= 0x00;//P2 interrupts off
+	P2DIR = 0x60;//p2.7 IN
+	P2REN |= 0x9F;
+	P2OUT |= 0x9F;//pullup resistors & start at mode 00
+	P2IES |= 0x80;
+	P2IE |= 0x80;//mode interrupt
+
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
@@ -131,18 +135,37 @@ void setTube(){
  *interrupt service routines
 ------------------------------------------------------------------------------*/
 
+#pragma vector=PORT2_VECTOR
+__interrupt void Port_2(void)
+{
+
+	unsigned char replace;
+	replace= P2OUT;
+
+	for(int i=0;i<50000;i++);//debounce for 50ms
+
+	if((P2IN & 0x80) == 0x00){// p2.0 mode
+		twoFourCnt++;
+		twoFourCnt%4;
+		replace |= 0x60;
+		replace &= twoFourTable[twoFourCnt];
+		}
+
+	P2OUT = replace; //alter 2.5 2.6 for LEDs
+
+}
+
 #pragma vector=NMI_VECTOR
 __interrupt void nmi(void)
 {
 
 	IFG1&=~NMIIFG;                      //clear nmi interrupt flag
-	int i;
 	IE1 |= NMIIE;                          // enable nmi
 	WDTCTL = WDTPW + WDTHOLD + WDTNMI + WDTNMIES;    // select nmi function on RST/NMI (hi/lo)
 
 	//debounce slightly
 
-	for(i=0;i<100;i++);
+	for(int i=0;i<100;i++);
 
 	getTube();
 	setTube();

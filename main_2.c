@@ -36,7 +36,7 @@ int main(void) {
 
 	while(1){
 
-		__bis_SR_register(LPM3_bits + GIE);//sleep
+		__bis_SR_register(LPM1_bits + GIE);//sleep
 	}
 }
 
@@ -77,6 +77,8 @@ static void config_ports(){
 	P1OUT &= 0x00;
 
 	P2DIR = 0x00;//p2.7 IN
+	P2REN |= 0x1F;
+	P2OUT |= 0x1F;//pullup resistors
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
@@ -134,13 +136,12 @@ __interrupt void nmi(void)
 {
 
 	IFG1&=~NMIIFG;                      //clear nmi interrupt flag
-	int i;
 	IE1 |= NMIIE;                          // enable nmi
 	WDTCTL = WDTPW + WDTHOLD + WDTNMI + WDTNMIES;    // select nmi function on RST/NMI (hi/lo)
 
 	//debounce slightly
 
-	for(i=0;i<100;i++);
+	for(int i=0;i<100;i++);
 
 	getTube();
 	setTube();

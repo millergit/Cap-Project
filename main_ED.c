@@ -38,7 +38,7 @@ void main (void)
 	{
 		/* Go to sleep, waiting for interrupt every second to acquire data */
 
-		__bis_SR_register(LPM3_bits);
+		__bis_SR_register(LPM0_bits);
 
 		/* Time to measure */
 		if (sSelfMeasureSem) {
@@ -148,21 +148,21 @@ void handleButton(int whatButton){
 #pragma vector=ADC10_VECTOR
 __interrupt void ADC10_ISR(void)
 {
-	__bic_SR_register_on_exit(CPUOFF);        // Clear CPUOFF bit from 0(SR)
+	LPM0_EXIT;        // Clear CPUOFF bit from 0(SR)
 }
 
 #pragma vector=TIMERA0_VECTOR
 __interrupt void Timer_A (void)
 {
 	sSelfMeasureSem = 1;
-	__bic_SR_register_on_exit(LPM3_bits);        // Clear LPM3 bit from 0(SR)
+	LPM0_EXIT;        // Clear LPM3 bit from 0(SR)
 }
 
 #pragma vector=PORT2_VECTOR
 __interrupt void Port_2(void){
 
-	unsigned int i;
-	for(i=0;i<50000;i++);//debounce for 50ms
+
+	for(int i=0;i<50000;i++);//debounce for 50ms
 
 	SMPL_Ioctl( IOCTL_OBJ_RADIO, IOCTL_ACT_RADIO_AWAKE, 0);
 
