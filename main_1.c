@@ -16,14 +16,14 @@ __interrupt void nmi(void);
 __interrupt void Timer0_A0(void);
 
 //clock variables
-unsigned int whatButton;
+unsigned int whatButton,almTrigger,snoozeCount;
 unsigned int almWatch;
 
 //Display items
 unsigned int tube1,tube2;//1 is hour
 unsigned int tubeSel, digit;
 
-//clock fuctions
+//clock functions
 void handleButton(int whatButton);
 void getTube();
 void setTube();
@@ -134,7 +134,7 @@ void handleButton(int whatButton){
 		}
 		break;
 	case 2://alarm switch
-		almTrigger =0;
+		almTrigger = 0;
 		break;
 	case 3://snooze
 		alarmOff();
@@ -174,7 +174,7 @@ void checkAlarm(){
 	}
 	if(snoozeCount){//snooze button hit - alarm not reset
 		snoozeCount++;
-		if(almOn=600){//10m snooze
+		if(snoozeCount == 600){//10m snooze
 			alarmOn();
 		}
 	}
@@ -239,8 +239,8 @@ __interrupt void Port_1(void)
 {
 
 	//check if snooze or alarm
-
-	for(int i=0;i<50000;i++);//debounce for 50ms
+	int i;
+	for(i=0;i<50000;i++);//debounce for 50ms
 
 	if((P1IN & 0x02) == 0x00){//p1.1 alm
 		handleButton(1);
@@ -261,14 +261,13 @@ __interrupt void Port_1(void)
 #pragma vector=NMI_VECTOR
 __interrupt void nmi(void)
 {
-
 	IFG1&=~NMIIFG;                      //clear nmi interrupt flag
 	IE1 |= NMIIE;                          // enable nmi
 	WDTCTL = WDTPW + WDTHOLD + WDTNMI + WDTNMIES;    // select nmi function on RST/NMI (hi/lo)
 
 	//debounce slightly
-
-	for(int i=0;i<100;i++);
+	int i;
+	for(i=0;i<100;i++);
 
 	getTube();
 	setTube();

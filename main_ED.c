@@ -161,8 +161,8 @@ __interrupt void Timer_A (void)
 #pragma vector=PORT2_VECTOR
 __interrupt void Port_2(void){
 
-
-	for(int i=0;i<50000;i++);//debounce for 50ms
+	int i;
+	for(i=0;i<50000;i++);//debounce for 50ms
 
 	SMPL_Ioctl( IOCTL_OBJ_RADIO, IOCTL_ACT_RADIO_AWAKE, 0);
 

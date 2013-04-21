@@ -14,10 +14,10 @@ static void config_ports();
 __interrupt void nmi(void);
 
 //Display items
-unsigned int tube1,tube2;//1 is hour
+unsigned int tube3,tube4;//1 is hour
 unsigned int tubeSel, digit;
 
-//clock fuctions
+//clock functions
 void getTube();
 void setTube();
 void alarmOn();
@@ -60,8 +60,10 @@ static void config_interrupts(){
 }
 
 void initVars(){
-	tube3,tube4 = 0;
-	tubeSel, digit = 0;
+	tube3=0;
+	tube4=0;
+	tubeSel=0;
+	digit=0;
 }
 
 static void config_ports(){
@@ -140,8 +142,8 @@ __interrupt void nmi(void)
 	WDTCTL = WDTPW + WDTHOLD + WDTNMI + WDTNMIES;    // select nmi function on RST/NMI (hi/lo)
 
 	//debounce slightly
-
-	for(int i=0;i<100;i++);
+	int i;
+	for(i=0;i<100;i++);
 
 	getTube();
 	setTube();

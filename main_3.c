@@ -15,11 +15,11 @@ __interrupt void nmi(void);
 __interrupt void Port_2(void);
 
 //Display items
-unsigned int tube1,tube2;//1 is hour
-unsigned int tubeSel, digit;
-unsigned char twoFourTable = {0x9F,0xBF,0xDF,0xFF};
+unsigned int tube5,tube6;//1 is hour
+unsigned int tubeSel, digit, twoFourCnt;
+unsigned char twoFourTable[4] = {0x9F,0xBF,0xDF,0xFF};
 
-//clock fuctions
+//clock functions
 void getTube();
 void setTube();
 void initVars();
@@ -60,8 +60,11 @@ static void config_interrupts(){
 }
 
 void initVars(){
-	tube5,tube6 = 0;
-	tubeSel, digit = 0;
+	tube5 = 0;
+	tube6 = 0;
+	tubeSel = 0;
+	digit = 0;
+	twoFourCnt = 0;
 }
 
 static void config_ports(){
@@ -141,8 +144,8 @@ __interrupt void Port_2(void)
 
 	unsigned char replace;
 	replace= P2OUT;
-
-	for(int i=0;i<50000;i++);//debounce for 50ms
+	int i;
+	for(i=0;i<50000;i++);//debounce for 50ms
 
 	if((P2IN & 0x80) == 0x00){// p2.0 mode
 		twoFourCnt++;
@@ -164,8 +167,8 @@ __interrupt void nmi(void)
 	WDTCTL = WDTPW + WDTHOLD + WDTNMI + WDTNMIES;    // select nmi function on RST/NMI (hi/lo)
 
 	//debounce slightly
-
-	for(int i=0;i<100;i++);
+	int i;
+	for(i=0;i<100;i++);
 
 	getTube();
 	setTube();

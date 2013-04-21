@@ -24,7 +24,7 @@ static void config_interrupts();
 
 //clock variables
 unsigned int whatButton, buttonSim, tempCnt;
-unsigned char sim;
+unsigned char sim,ext_temp;
 
 
 //fuctions
@@ -75,6 +75,7 @@ void main (void)
 void initVars(){
 	buttonSim=0;
 	whatButton=0;
+	ext_temp = 72;
 	tempCnt =0;
 	sim=0xFF;
 }
@@ -93,14 +94,12 @@ static void config_ports(){
 
 	//USCI  UART config
 	P3SEL |= 0x30;//p3.4 Tx p3.5 Rx
-	UCA0CTL0 |= CHAR;//8-bit character
 	UCA0CTL1 |= UCSSEL3;// UCLK =SMCLK 8MHz
-	UCA0CTL1 &= ˜UCSSWRST;//Initialize USART state machine
+	UCA0CTL1 &= ~UCSSWRST;//Initialize USART state machine
 	UCA0BR0 = 0xD0;// 8MHz/38400BAUD Fit baud to 16 bits - 208.333 -> 11010000...
 	UCA0BR1 = 0x00;
 	UCA0MCTL = 0x11; /* uart0 8000000Hz 38406bps */
-	IE2 |= UCA0TXIE + UCA0RXIE;// Enable RX/TX interrupt
-	UCIE |= UCA1TXIE + UCA1RXIE;// Enable TXD/RXD
+	IE2 |= 0x00;// Enable RX/TX interrupt
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
@@ -180,14 +179,8 @@ void sendTemp(){
 
 	//utilize uart tx
 	//test code
-
-		for(int i = 0; i < 6; i++)
-		{
-		TXBUF0 = i;
-		while (!(IFG2&UCA0TXIFG)); // TX buffer ready?
-		}
-	while (!(IFG2&UCA0TXIFG));                 // USCI_A0 TX buffer ready?
-		UCTXBUF0 = 25;                     // TX -> RXed character
+	while (!(IFG2&UCA0TXIFG));// USCI_A0 TX buffer ready?
+	UCTXBUF0 = ext_temp;// TX -> character
 
 }
 

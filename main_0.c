@@ -26,7 +26,7 @@ unsigned int tubeSel, digit;
 unsigned char tubeTable[10]={0x0F,0x1F,0x2F,0x3F,0x4F,0x5F,0x6F,0x7F,0x8F,0x9F};
 unsigned char nmizTable[6]={0xC7,0xCF,0xD7,0xDF,0xE7,0xEF};
 
-//clock fuctions
+//clock functions
 void handleButton(int whatButton);
 void setTubes();
 void display();
@@ -106,6 +106,7 @@ void initVars(){
 	tubeSel = 6;
 	digit=0;
 	whatButton=0;
+	temp = 70;
 	int i;
 	for(i=0;i<6;i++){tube[i]=0;}
 }
@@ -127,14 +128,12 @@ static void config_ports(){
 	//config UART
 	P1SEL |= 0x06;//1.1 Rx 1.2 tx
 	//copy pasted below
-	UCA0CTL0 |= CHAR;//8-bit character
-	UCA0CTL1 |= UCSSEL3;// UCLK =SMCLK 8MHz
-	UCA0CTL1 &= ˜UCSSWRST;//Initialize USART state machine
+	UCA0CTL1 |= 0x80;// UCLK =SMCLK 8MHz
+	UCA0CTL1 &= ~UCSWRST;//Initialize USART state machine
 	UCA0BR0 = 0x1A;// 1MHz/38400BAUD Fit baud to 16 bits - 26.042 -> 00011010...
 	UCA0BR1 = 0x00;
 	UCA0MCTL = 0x00; /* uart0 1000000Hz 38461bps */
-	IE2 |= UCA0TXIE + UCA0RXIE;// Enable RX/TX interrupt
-	UCIE |= UCA1TXIE + UCA1RXIE;// Enable TXD/RXD
+	IE2 |= UCA0RXIE;// Enable RX/TX interrupt
 	
 	//end UART
 	
@@ -290,9 +289,9 @@ void setTubes(){
 		tube[0]=0;
 		tube[1]=0;
 		tube[2]=0;
-		tube[3]=0;
-		tube[4]=0;
-		tube[5]=0;
+		tube[3]=(temp/100)%10;
+		tube[4]=(temp/10)%10;
+		tube[5]=temp%10;
 		break;
 	default:
 		break;
@@ -323,8 +322,8 @@ void display(){
 	P2OUT = store2;//set nmi and Z
 
 	//hold for 10000 cycles
-
-	for(int i=0;i<10000;i++){}
+	int i;
+	for(i=0;i<10000;i++){}
 	P2OUT |= 0x30;//clear NMI
 
 
@@ -332,9 +331,8 @@ void display(){
 
 void getTemp(){
 
-	//UART receive
+	//UART receive so far handled in interrupt, this function may not be necessary
 
-	//clear received flag
 }
 
 void checkAlarm(){
@@ -419,7 +417,8 @@ __interrupt void Timer0_A0 (void)
 __interrupt void Port_2(void)
 {
 
-	for(int i=0;i<50000;i++);//debounce for 50ms
+	int i;
+	for(i=0;i<50000;i++);//debounce for 50ms
 
 	if((P2IN & 0x01) == 0x00){//0000 0110 p2.0 mode
 		handleButton(1);
@@ -436,10 +435,10 @@ __interrupt void Port_2(void)
 	LPM1_EXIT;//clear flag
 }
 
-#pragma vector=USCA0RX_VECTOR
+#pragma vector = USCIAB0RX_VECTOR
 __interrupt void uart0_rx (void)
 {
-	temp = UCRXBUF0;
-	IFG2 &= ~UCA0RXIFG;
+	temp = UCA0RXBUF;
+	IFG2 &= ~UCA0RXIFG;//clear flag
 }
 
