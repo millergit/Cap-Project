@@ -44,7 +44,7 @@ int main(void) {
 	while(1){
 
 
-		__bis_SR_register(LPM3_bits + GIE);//sleep
+		__bis_SR_register(LPM1_bits + GIE);//sleep
 	}
 }
 
