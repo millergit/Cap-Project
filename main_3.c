@@ -36,7 +36,7 @@ int main(void) {
 
 	while(1){
 
-		__bis_SR_register(LPM3_bits + GIE);//sleep
+		__bis_SR_register(LPM1_bits + GIE);//sleep
 	}
 }
 
@@ -101,7 +101,7 @@ void getTube(){
 		tube5 = (P2IN & 0x0F);
 		tube5 |= 0xF0;
 	}
-	else if((P2IN & 0x10) == 0x00){//tube 6
+	else if((P2IN & 0x10) == 0x10){//tube 6
 		tubeSel=6;
 		tube6 = ((P2IN & 0x0F)<<4);// shift to match other port
 		tube6 |= 0x0F;
@@ -143,13 +143,13 @@ __interrupt void Port_2(void)
 {
 
 	unsigned char replace;
-	replace= P2OUT;
-	int i;
+	replace = P2OUT;
+	unsigned int i;
 	for(i=0;i<50000;i++);//debounce for 50ms
 
-	if((P2IN & 0x80) == 0x00){// p2.0 mode
+	if((P2IN & 0x80) == 0x00){// p2.7 mode
 		twoFourCnt++;
-		twoFourCnt%4;
+		twoFourCnt = twoFourCnt%4;
 		replace |= 0x60;
 		replace &= twoFourTable[twoFourCnt];
 		}
@@ -167,7 +167,7 @@ __interrupt void nmi(void)
 	WDTCTL = WDTPW + WDTHOLD + WDTNMI + WDTNMIES;    // select nmi function on RST/NMI (hi/lo)
 
 	//debounce slightly
-	int i;
+	unsigned int i;
 	for(i=0;i<100;i++);
 
 	getTube();

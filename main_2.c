@@ -96,7 +96,7 @@ void getTube(){
 		tube3 = (P2IN & 0x0F);
 		tube3 |= 0xF0;
 	}
-	else if((P2IN & 0x10) == 0x00){//tube 4
+	else if((P2IN & 0x10) == 0x10){//tube 4
 		tubeSel=4;
 		tube4 = ((P2IN & 0x0F)<<4);// shift to match other port
 		tube4 |= 0x0F;
@@ -142,7 +142,7 @@ __interrupt void nmi(void)
 	WDTCTL = WDTPW + WDTHOLD + WDTNMI + WDTNMIES;    // select nmi function on RST/NMI (hi/lo)
 
 	//debounce slightly
-	int i;
+	unsigned int i;
 	for(i=0;i<100;i++);
 
 	getTube();

@@ -1,17 +1,17 @@
 #include "bsp.h"
 #include "mrfi.h"
-#include "nwk_types.h"
-#include "nwk_api.h"
 #include "bsp_leds.h"
 #include "bsp_buttons.h"
-#include "vlo_rand.h"
-
+#include "nwk_types.h"
+#include "nwk_api.h"
+#include "nwk_frame.h"
+#include "nwk.h"
 
 //EZ430 in remote
 //initialization functions
 static void config_ports();
 
-//interrup handlers
+//interrupt handlers
 __interrupt void ADC10_ISR(void);
 __interrupt void Timer_A (void);
 
@@ -21,12 +21,13 @@ volatile int * tempOffset = (int *)0x10F4;
 /* Work loop semaphores */
 static volatile uint8_t sSelfMeasureSem = 0;
 
-//fuctions
+//functions
 void handleButton();
 
 
 void main (void)
 {
+	config_ports();
 
 	BSP_Init();
 
@@ -43,7 +44,7 @@ void main (void)
 		/* Time to measure */
 		if (sSelfMeasureSem) {
 			volatile long temp;
-			int degC, volt;
+			int degC;
 			int results[2];
 
 			/* Get temperature */
@@ -88,11 +89,10 @@ void main (void)
 	         0         1          2
 			 */
 			temp = results[1];
-			volt = (temp*25)/512;
 
 			msg[0] = degC&0xFF;
 			msg[1] = (degC>>8)&0xFF;
-			msg[2] = volt;
+
 
 			/* Get radio ready...awakens in idle state */
 			SMPL_Ioctl( IOCTL_OBJ_RADIO, IOCTL_ACT_RADIO_AWAKE, 0);
@@ -122,7 +122,7 @@ static void config_ports(){
 	P2DIR = 0x00;
 	P2REN = 0x0F;
 	P2OUT = 0x0F;//pullup
-	P2IES 0x0F;
+	P2IES = 0x0F;
 	P2IE = 0x0F;//pins 0,1,2,3 buttons
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
@@ -130,7 +130,7 @@ static void config_ports(){
 
 void handleButton(int whatButton){
 
-	unit8_t msg[2];
+	unsigned char msg[2];
 
 	msg[0]=2;
 	msg[1]=whatButton;
@@ -161,7 +161,7 @@ __interrupt void Timer_A (void)
 #pragma vector=PORT2_VECTOR
 __interrupt void Port_2(void){
 
-	int i;
+	unsigned int i;
 	for(i=0;i<50000;i++);//debounce for 50ms
 
 	SMPL_Ioctl( IOCTL_OBJ_RADIO, IOCTL_ACT_RADIO_AWAKE, 0);

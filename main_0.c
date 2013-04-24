@@ -13,7 +13,7 @@ static void config_ports();
 //interrupt handlers
 __interrupt void Port_2(void);
 __interrupt void Timer0_A0 (void);
-__interrupt void uart0_rx (void);
+__interrupt void USCI0RX_ISR(void);
 
 //clock variables
 unsigned int month, day, year, sec, min, hour, pm, mode, whatButton;
@@ -123,28 +123,26 @@ static void config_ports(){
 	//p2.3 is Z OUT
 	//p2.4, p2.5 2 to 4 converter OUT
 	//p2.6 NOTHING
-	//p2.7 alarm OUT
+	//p2.7 alarm OUT.
 
-	//config UART
-	P1SEL |= 0x06;//1.1 Rx 1.2 tx
-	//copy pasted below
-	UCA0CTL1 |= 0x80;// UCLK =SMCLK 8MHz
-	UCA0CTL1 &= ~UCSWRST;//Initialize USART state machine
-	UCA0BR0 = 0x1A;// 1MHz/38400BAUD Fit baud to 16 bits - 26.042 -> 00011010...
-	UCA0BR1 = 0x00;
-	UCA0MCTL = 0x00; /* uart0 1000000Hz 38461bps */
-	IE2 |= UCA0RXIE;// Enable RX/TX interrupt
-	
-	//end UART
-	
 	P1DIR = 0xF1;//0b11110001
 	P1OUT = 0x00;//nmi select gnd
-
 	P2DIR = 0xB8;//0b1011 1000
-	
 	P2REN |= 0x07;//0b0000 0111 enable resistor
 	P2OUT |= 0x37;//0b0011 0111  2-4 start NMI in gnd//pullup resistor for inputs
 	P2IES |= 0x07;//0b0000 0111    high to low transition to generate
+
+	//config UART
+	P1SEL = BIT1 + BIT2 ;// P1.1 = RXD, P1.2=TXD
+	P1SEL2 = BIT1 + BIT2;
+	UCA0CTL1 |= UCSSEL_2;// SMCLK
+	UCA0BR0 = 0x1A;// 1MHz/38400BAUD Fit baud to 16 bits - 26.042 -> 00011010...
+	UCA0BR1 = 0x00;/* uart0 1000000Hz 38461bps */
+	UCA0MCTL = 0x00;// Modulation UCBRSx = 1
+	UCA0CTL1 &= ~UCSWRST;// **Initialize USCI state machine**
+	IE2 |= UCA0RXIE;// Enable USCI_A0 RX interrupt
+	//end UART
+	
 	P2IE |= 0x07;//interrupt enable 0111 1111
 	P2IFG &= 0x00;//clear flag to start
 
@@ -303,7 +301,10 @@ void display(){
 	//z is 1
 	//2,3 are 2 to 4
 	//x is 4-7
-	unsigned char store1,store2;
+	unsigned char store1;
+	unsigned char store2;
+	store1 = 0x00;
+	store2 = 0x00;
 
 	store1 |= P1OUT;//save port 1 state
 	store1 |= 0xF0;//set pins to change to 1
@@ -417,7 +418,7 @@ __interrupt void Timer0_A0 (void)
 __interrupt void Port_2(void)
 {
 
-	int i;
+	unsigned int i;
 	for(i=0;i<50000;i++);//debounce for 50ms
 
 	if((P2IN & 0x01) == 0x00){//0000 0110 p2.0 mode
@@ -435,8 +436,8 @@ __interrupt void Port_2(void)
 	LPM1_EXIT;//clear flag
 }
 
-#pragma vector = USCIAB0RX_VECTOR
-__interrupt void uart0_rx (void)
+#pragma vector=USCIAB0RX_VECTOR
+__interrupt void USCI0RX_ISR(void)
 {
 	temp = UCA0RXBUF;
 	IFG2 &= ~UCA0RXIFG;//clear flag

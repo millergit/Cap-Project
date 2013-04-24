@@ -188,6 +188,7 @@ void getTube(){
 		tube1 = ((P1IN & 0x38)<<1);//bit shift to match port 2 tube 1 out
 		tube1 |= 0x80;
 		tempx = ((tube1 & 0x40)<<1);
+		tempx |= 0x7F;
 		tube1 &= tempx;
 		tube1 |= 0x4F;
 	}
@@ -239,7 +240,7 @@ __interrupt void Port_1(void)
 {
 
 	//check if snooze or alarm
-	int i;
+	unsigned int i;
 	for(i=0;i<50000;i++);//debounce for 50ms
 
 	if((P1IN & 0x02) == 0x00){//p1.1 alm
@@ -254,7 +255,6 @@ __interrupt void Port_1(void)
 	}
 
 	P1IFG &= 0x00; //clear interrupt flag
-	LPM1_EXIT;//clear flag
 
 }
 
@@ -266,7 +266,7 @@ __interrupt void nmi(void)
 	WDTCTL = WDTPW + WDTHOLD + WDTNMI + WDTNMIES;    // select nmi function on RST/NMI (hi/lo)
 
 	//debounce slightly
-	int i;
+	unsigned int i;
 	for(i=0;i<100;i++);
 
 	getTube();
