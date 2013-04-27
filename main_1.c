@@ -13,7 +13,7 @@ static void config_ports();
 //interrupt handlers
 __interrupt void Port_1(void);
 __interrupt void nmi(void);
-__interrupt void Timer0_A0(void);
+__interrupt void Timer1_A1(void);
 
 //clock variables
 unsigned int whatButton,almTrigger,snoozeCount;
@@ -69,9 +69,9 @@ static void config_clocks(){
 
 static void config_interrupts(){
 
-	TA0CTL = TASSEL_1 + TACLR + MC_1; //ACLK, clear TAR, count up
-	CCTL0 = CCIE; // CCR0 interrupt enabled
-	TA0CCR0 = 11999; //12000/(11999+1) = interrupt @ 1Hz
+	TA1CTL = TASSEL_1 + TACLR + MC_1; //ACLK, clear TAR, count up
+	TA1CCTL0 = CCIE; // CCR0 interrupt enabled
+	TA1CCR0 = 11999; //12000/(11999+1) = interrupt @ 1Hz
 
 }
 
@@ -110,11 +110,11 @@ static void config_ports(){
 	P2DIR = 0xFF;//all output
 	P2OUT |= 0x00; //p2.7 is pullup resistor
 
-	//1.2 PWM
-	TA1CTL = TASSEL_1 + MC_0;//aclk @12000Hz
-	TA1CCR0 = 6;// PWM period, 2000Hz
-	TA1CCR1 = 3;//4000Hz 50% duty
-	TA1CCTL1 = OUTMOD_7;
+	//2.6 PWM
+	TA0CTL = TASSEL_1 + MC_0;//aclk @12000Hz
+	CCR0 = 6;// PWM period, 2000Hz
+	CCR1 = 3;//4000Hz 50% duty
+	CCTL1 = OUTMOD_7;
 
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
@@ -149,14 +149,14 @@ void handleButton(int whatButton){
 
 void alarmOn(){
 
-	TA1CTL |= MC_1;//count up
+	TA0CTL |= MC_1;//count up
 	almWatch=1;
 		
 }
 
 void alarmOff(){
 
-	TA1CTL &= MC_0;//stop count
+	TA0CTL &= MC_0;//stop count
 	
 	if(almTrigger){
 		snoozeCount=1;
@@ -227,8 +227,8 @@ void setTube(){
 /*------------------------------------------------------------------------------
  *interrupt service routines
 ------------------------------------------------------------------------------*/
-#pragma vector = TIMER0_A0_VECTOR
-__interrupt void Timer0_A0 (void)
+#pragma vector = TIMER1_A0_VECTOR
+__interrupt void Timer1_A0 (void)
 {
 
 	checkAlarm();//each second check if it's on
