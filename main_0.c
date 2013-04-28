@@ -313,12 +313,12 @@ void display(){
 
 	digit = tube[tubeSel];//set digit
 
-	store1 = tubeTable[digit];//determine BCD out
+	store1 &= tubeTable[digit];//determine BCD out
 
 	P1OUT = store1;//set X
 
 	//send NMI with info
-	store2 = nmizTable[tubeSel];//determine nmi and Z
+	store2 &= nmizTable[tubeSel];//determine nmi and Z
 
 	P2OUT = store2;//set nmi and Z
 
