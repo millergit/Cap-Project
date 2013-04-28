@@ -69,7 +69,7 @@ static void config_clocks(){
 
 	BCSCTL2 = 0x06;//SM clock is DO clock/8=125000Hz; main is dco
 
-	BCSCTL3 = 0x20;//ACLK is VLOCLK @ 12kHz
+	BCSCTL3 |= LFXT1S_2; // LFXT1 = VLO
 
 	//if crystal
 	//BCSCTL3 = 0b00000000;//Aclk is crystal, bits 3&2 determine capacitor select.
@@ -409,6 +409,14 @@ __interrupt void Timer0_A0 (void)
 	clockTick();
 	checkAlarm();
 	getTemp();
+	//set pm led
+	if(pm){
+		P1OUT |= 0x01;
+	}
+	else{
+		P1OUT &= ~01;
+	}
+
 	LPM1_EXIT; //clear flag
 
 
