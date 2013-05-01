@@ -20,7 +20,7 @@ unsigned int whatButton,almTrigger,snoozeCount;
 unsigned int almWatch;
 
 //Display items
-unsigned int tube1,tube2;//1 is hour
+unsigned char tube1,tube2;//1 is hour
 unsigned int tubeSel, digit;
 
 //clock functions
@@ -44,7 +44,7 @@ int main(void) {
 	while(1){
 
 
-		__bis_SR_register(LPM1_bits + GIE);//sleep
+		__bis_SR_register(LPM0_bits + GIE);//sleep
 	}
 }
 
@@ -97,21 +97,19 @@ static void config_ports(){
 	//p2.7 tube 1 OUT partial
 
 	P1DIR = 0x00;// all input
-	P1REN |= 0x84;//0b1000 0100 // enable resistors for snooze and alarm switch
-	P1OUT &= 0x84;//0b1000 0100 //pull up type resistor
-	P1IE |= 0x86;//0b1000 0110 //alm in, snooze, alm switch
+	P1REN = 0x86;//0b1000 0110 // enable resistors for snooze and alarm switch
+	P1OUT = 0x86;//0b1000 0110 //pull up type resistor
+	P1IES = 0x86;//0b1000 0110 //alm in and snooze on hi/lo transition
+	P1IE = 0x86;//0b1000 0110 //alm in, snooze, alm switch
 	
-	//ONLY TRIGGER alm switch 1.2 FOR EDGE THAT 
-	//REPRESENTS ALARM OFF --> 0x82 or 0x86 also modify P1OUT or resistor as needed
-	P1IES |= 0x86;//0b1000 0010 //alm in and snooze on hi/lo transition
 	P1IFG &= 0x00;//clear flag
 	
 	P2SEL = 0x40;//select PWM out
 	P2DIR = 0xFF;//all output
-	P2OUT |= 0x00; //p2.7 is pullup resistor
+	P2OUT = 0x00; //p2.7 is pullup resistor
 
 	//2.6 PWM
-	TA0CTL = TASSEL_1 + MC_0;//aclk @12000Hz
+	TA0CTL = 0x0100;// 0b0000 0001 0000 0000;//aclk @12000Hz
 	CCR0 = 6;// PWM period, 2000Hz
 	CCR1 = 3;//4000Hz 50% duty
 	CCTL1 = OUTMOD_7;
@@ -135,6 +133,7 @@ void handleButton(int whatButton){
 		break;
 	case 2://alarm switch
 		almTrigger = 0;
+		alarmOff();
 		break;
 	case 3://snooze
 		alarmOff();
@@ -149,14 +148,14 @@ void handleButton(int whatButton){
 
 void alarmOn(){
 
-	TA0CTL |= MC_1;//count up
+	TA0CTL = 0x0110;//count up
 	almWatch=1;
 		
 }
 
 void alarmOff(){
 
-	TA0CTL &= MC_0;//stop count
+	TA0CTL = 0x0100;//stop count
 	
 	if(almTrigger){
 		snoozeCount=1;
@@ -241,7 +240,7 @@ __interrupt void Port_1(void)
 
 	//check if snooze or alarm
 	unsigned int i;
-	for(i=0;i<50000;i++);//debounce for 50ms
+	for(i=0;i<10000;i++);
 
 	if((P1IN & 0x02) == 0x00){//p1.1 alm
 		handleButton(1);
@@ -264,6 +263,7 @@ __interrupt void nmi(void)
 	IFG1&=~NMIIFG;                      //clear nmi interrupt flag
 	IE1 |= NMIIE;                          // enable nmi
 	WDTCTL = WDTPW + WDTHOLD + WDTNMI + WDTNMIES;    // select nmi function on RST/NMI (hi/lo)
+	P1IE = 0x86;//0b1000 0110 //alm in, snooze, alm switch
 
 	//debounce slightly
 	unsigned int i;

@@ -14,7 +14,7 @@ static void config_ports();
 __interrupt void nmi(void);
 
 //Display items
-unsigned int tube3,tube4;//1 is hour
+unsigned char tube3,tube4;//1 is hour
 unsigned int tubeSel, digit;
 
 //clock functions

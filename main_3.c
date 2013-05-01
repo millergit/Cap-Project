@@ -15,8 +15,8 @@ __interrupt void nmi(void);
 __interrupt void Port_2(void);
 
 //Display items
-unsigned int tube5,tube6;//1 is hour
-unsigned int tubeSel, digit, twoFourCnt;
+unsigned char tube5,tube6, twoFourCnt;//1 is hour
+unsigned int tubeSel, digit;
 unsigned char twoFourTable[4] = {0x9F,0xBF,0xDF,0xFF};
 
 //clock functions
@@ -48,9 +48,8 @@ static void config_clocks(){
 	//for no crystal
 	DCOCTL = CALDCO_1MHZ;//DCO frequency step set
 	BCSCTL1 = CALBC1_1MHZ;//basic lock system control reg1 freq. range set
-
-	BCSCTL2 = 0x06;//0b00000110 SM clock is DO clock/8=125000Hz; main is dco
-	BCSCTL3 = 0x20;//ACLK is VLOCLK @ 12kHz
+	BCSCTL2 = 0x06;//SM clock is DO clock/8=125000Hz; main is dco
+	BCSCTL3 |= LFXT1S_2; // LFXT1 = VLO
 
 }
 
@@ -74,17 +73,19 @@ static void config_ports(){
 
 	//p2.0-p2.3 X IN
 	//p2.4 Z IN
-	//p2.5,p2.6 2 to 4 LEDs OUT
+	//p2.5,p2.6
+	//2 to 4 LEDs OUT
 	//p2.7 mode IN
 
 	P1DIR = 0xFF;//all out
-	P1OUT &= 0x00;
+	P1OUT = 0x00;
 
-	P2DIR = 0x60;//p2.7 IN
-	P2REN |= 0x9F;
-	P2OUT |= 0x9F;//pullup resistors & start at mode 00
-	P2IES |= 0x80;
-	P2IE |= 0x80;//mode interrupt
+	P2SEL = 0x00;
+	P2DIR = 0x60;
+	P2REN = 0x9F;
+	P2OUT = 0x9F;//pullup resistors & start at mode 00
+	P2IES = 0x80;
+	P2IE = 0x80;//mode interrupt
 
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
@@ -143,9 +144,9 @@ __interrupt void Port_2(void)
 {
 
 	unsigned char replace;
-	replace = P2OUT;
 	unsigned int i;
-	for(i=0;i<50000;i++);//debounce for 50ms
+	for(i=0;i<10000;i++);
+	replace = P2OUT;
 
 	if((P2IN & 0x80) == 0x00){// p2.7 mode
 		twoFourCnt++;
@@ -155,6 +156,8 @@ __interrupt void Port_2(void)
 		}
 
 	P2OUT = replace; //alter 2.5 2.6 for LEDs
+
+	P2IFG = 0x00;//clear interrupt flag
 
 }
 
@@ -173,6 +176,10 @@ __interrupt void nmi(void)
 	getTube();
 	setTube();
 
+	P2IES = 0x80;
+	P2IE = 0x80;//mode interrupt
+
+	_BIS_SR(GIE);//enable interrupts could also use _EINT();
 }
 
 

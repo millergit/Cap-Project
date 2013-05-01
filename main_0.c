@@ -17,8 +17,8 @@ __interrupt void USCI0RX_ISR(void);
 
 //clock variables
 unsigned int month, day, year, sec, min, hour, pm, mode, whatButton;
-unsigned int almH, almM, almPm, almWatch;
-unsigned int temp;
+unsigned int almH, almM, almPm, almWatch, almTrigger;
+unsigned char temp;
 
 //Display items
 unsigned int tube[6];//1 is hour
@@ -99,14 +99,14 @@ void initVars(){
 	pm=0;
 	almM=0;
 	almPm=0;
-	hour=0;
+	hour=12;
 	almH = 12;
 	mode=0;
-	almWatch=0;;
+	almWatch=0;
 	tubeSel = 6;
 	digit=0;
 	whatButton=0;
-	temp = 70;
+	temp = 69;
 	int i;
 	for(i=0;i<6;i++){tube[i]=0;}
 }
@@ -126,11 +126,12 @@ static void config_ports(){
 	//p2.7 alarm OUT.
 
 	P1DIR = 0xF1;//0b11110001
-	P1OUT = 0x00;//nmi select gnd
+
 	P2DIR = 0xB8;//0b1011 1000
-	P2REN |= 0x07;//0b0000 0111 enable resistor
-	P2OUT |= 0x37;//0b0011 0111  2-4 start NMI in gnd//pullup resistor for inputs
-	P2IES |= 0x07;//0b0000 0111    high to low transition to generate
+	P2OUT = 0xB7;//0b1011 0111  2-4 start NMI in gnd//pullup resistor for inputs
+	P2REN = 0x07;//0b0000 0111 enable resistor
+	P2SEL = 0x00;
+	P2IES = 0x07;//0b0000 0111    high to low transition to generate
 
 	//config UART
 	P1SEL = BIT1 + BIT2 ;// P1.1 = RXD, P1.2=TXD
@@ -143,7 +144,7 @@ static void config_ports(){
 	IE2 |= UCA0RXIE;// Enable USCI_A0 RX interrupt
 	//end UART
 	
-	P2IE |= 0x07;//interrupt enable 0111 1111
+	P2IE |= 0x07;//interrupt enable 0000 0111
 	P2IFG &= 0x00;//clear flag to start
 
 	_BIS_SR(GIE);//enable interrupts could also use _EINT();
@@ -183,24 +184,30 @@ void handleButton(int whatButton){
 		case 0://time
 			hour++;
 			sec=0;
-			if(hour>12){
-				hour=1;
+			if(hour==12){
 				pm ^= 1;
+			}
+			if(hour==13){
+				hour=1;
 			}
 			break;
 		case 1://date
 			month++;
 			sec=0;
-			if(month>12){
+			day=1;
+			if(month==13){
+				month=1;
 				year++;
 				if(year>2099){year=2000;}
 			}
 			break;
 		case 2://alarm set
 			almH++;
-			if(almH>12){
-				almH=1;
+			if(almH==12){
 				almPm ^= 1;
+			}
+			if(almH==13){
+				almH=1;
 			}
 			break;
 		default:
@@ -218,27 +225,24 @@ void handleButton(int whatButton){
 				break;
 			case 1://date
 				day++;
-				if(day>=28){
+				if(day>28){
 					if(month==2){
-						if((year%4==0)&&(day<29)){
+						if((year%4==0)&&(day<30)){
 							if(year%100==0){
-								if((year%400)==0){}
-								else{
-									day=0;month++;
-								}
+								if((year%400)!=0){day=1;month++;}
 							}
 						}
 						else{
-							day=0;
+							day=1;
 							month++;
 						}
 					}
-					else if((month==4||month==6||month==9||month==11)&&day==30){
-						day=0;
+					else if((month==4||month==6||month==9||month==11)&&day==31){
+						day=1;
 						month++;
 					}
-					else if((month==1||month==3||month==5||month==7||month==8||month==10||month==12)&&day==31){
-						day=0;
+					else if((month==1||month==3||month==5||month==7||month==8||month==10||month==12)&&day==32){
+						day=1;
 						month++;
 					}
 				}
@@ -303,12 +307,10 @@ void display(){
 	//x is 4-7
 	unsigned char store1;
 	unsigned char store2;
-	store1 = 0x00;
-	store2 = 0x00;
 
-	store1 |= P1OUT;//save port 1 state
+	store1 = P1OUT;//save port 1 state
 	store1 |= 0xF0;//set pins to change to 1
-	store2 |= P2OUT;//save port 2 state
+	store2 = P2OUT;//save port 2 state
 	store2 |= 0x38;
 
 	digit = tube[tubeSel];//set digit
@@ -330,21 +332,20 @@ void display(){
 
 }
 
-void getTemp(){
 
-	//UART receive so far handled in interrupt, this function may not be necessary
-
-}
 
 void checkAlarm(){
 
-	if(almWatch){//beacon off after 1s
-		almWatch = 0;
-		P2OUT |= 0x80;//clear alarm
-	}
-	else if((hour==almH)&&(min==almM)&&(almPm==pm)){
+	if((hour==almH)&&(min==almM)&&(almPm==pm)&&(sec==1)&&(almWatch==0)){
 		P2OUT &= ~0x80;//send alarm beacon on p1.7
 		almWatch=1;
+	}
+	if(almWatch){
+		almWatch++;
+	}
+	if(almWatch==3){//beacon off after 1s
+			almWatch = 0;
+			P2OUT |= 0x80;//clear alarm
 	}
 
 }
@@ -359,36 +360,43 @@ void clockTick(){
 		min=0;
 		hour++;
 	}
-	if(hour==13){
-		hour=1;
-		if(pm){
+	if((hour==12)&&(min==0)&&(sec==0))
+	{
+		if(pm)
+		{
 			day++;
 			pm=0;
 		}else{
 			pm=1;
 		}
 	}
-	if(day>=28){
-		if(month==2){
-			if((year%4==0)&&(day<29)){
-				if(year%100==0){
-					if((year%400)==0){}
-					else{
-						day=0;month++;
-					}
+	if(hour==13)
+	{
+		hour=1;
+	}
+	if(day>28)
+	{
+		if(month==2)
+		{
+			if((year%4==0)&&(day<30))
+			{
+				if(year%100==0)
+				{
+					if((year%400)!=0){day=1;month++;}
 				}
 			}
 			else{
-				day=0;
+				day=1;
 				month++;
 			}
 		}
-		else if((month==4||month==6||month==9||month==11)&&day==30){
-			day=0;
+		else if((month==4||month==6||month==9||month==11)&&day==31)
+		{
+			day=1;
 			month++;
 		}
-		else if((month==1||month==3||month==5||month==7||month==8||month==10||month==12)&&day==31){
-			day=0;
+		else if((month==1||month==3||month==5||month==7||month==8||month==10||month==12)&&day==32){
+			day=1;
 			month++;
 		}
 	}
@@ -408,13 +416,23 @@ __interrupt void Timer0_A0 (void)
 
 	clockTick();
 	checkAlarm();
-	getTemp();
+
 	//set pm led
-	if(pm){
-		P1OUT |= 0x01;
+	if(mode==2){
+		if(almPm){
+			P1OUT |= 0x01;
+		}
+		else{
+			P1OUT &= ~01;
+		}
 	}
 	else{
-		P1OUT &= ~01;
+		if(pm){
+			P1OUT |= 0x01;
+		}
+		else{
+			P1OUT &= ~01;
+		}
 	}
 
 	LPM1_EXIT; //clear flag
@@ -427,17 +445,20 @@ __interrupt void Port_2(void)
 {
 
 	unsigned int i;
-	for(i=0;i<50000;i++);//debounce for 50ms
+	for(i=0;i<10000;i++);//debounce for 10ms
 
-	if((P2IN & 0x01) == 0x00){//0000 0110 p2.0 mode
-		handleButton(1);
-	}
-	if((P2IN & 0x02) == 0x00){//0000 0101 p2.1 hr
-		handleButton(2);
-	}
-	if((P2IN & 0x04) == 0x00){//0000 0011 p2.2 min
-		handleButton(3);
-	}
+	//if((P1IN & 0x80)== 0x00){//if set pressed
+		if((P2IN & 0x01) == 0x00){//0000 0110 p2.0 mode
+			handleButton(1);
+		}
+		if((P2IN & 0x02) == 0x00){//0000 0101 p2.1 hr
+			handleButton(2);
+		}
+		if((P2IN & 0x04) == 0x00){//0000 0011 p2.2 min
+			handleButton(3);
+		}
+	//}
+
 
 	P2IFG = 0x00;//clear interrupt flag
 
